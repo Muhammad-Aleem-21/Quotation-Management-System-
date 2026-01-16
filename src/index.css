@@ -1,0 +1,33 @@
+/* @import "tailwindcss"; */
+
+/* src/index.css */
+@import "tailwindcss";
+
+/* Enable dark mode with class strategy */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Base styles */
+/* :root {
+  --background: #ffffff;
+  --foreground: #000000;
+}
+
+.dark {
+  --background: #0f172a;
+  --foreground: #ffffff;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  transition: background-color 0.3s ease, color 0.3s ease;
+} */
+
+/* Ensure dark mode classes work */
+/* .dark .dark\:bg-gray-900 {
+  background-color: #111827 !important;
+}
+
+.dark .dark\:text-white {
+  color: #ffffff !important;
+} */
