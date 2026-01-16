@@ -9,9 +9,9 @@ import AdminNavbar from "./components/AdminNavbar";
 import SalesNavbar from "./components/SalespersonNavbar";
 import Allsalesperson from "./pages/admin/Allsalesperson";
 import CreateQuotation from "./quotation/CreateQuotation";
-import QuotationRequests from "./pages/admin/QuotationRequests";
-import Approved from "./pages/admin/Approved";
-import Rejected from "./pages/admin/Rejected";
+//import QuotationRequests from "./pages/admin/QuotationRequests";
+//import Approved from "./pages/admin/Approved";
+//import Rejected from "./pages/admin/Rejected";
 //import AccessLevels from "./pages/admin/ProductManagement";
 
 import TotalQuotations from './pages/admin/subPages/TotalQuotations';
@@ -306,7 +306,7 @@ function App() {
           }
         />
 
-        <Route
+        {/* <Route
           path="/quotation-requests"
           element={
             <ProtectedRoute requiredRole="admin">
@@ -315,9 +315,9 @@ function App() {
               </AdminLayout>
             </ProtectedRoute>
           }
-        />
+        /> */}
 
-        <Route
+        {/* <Route
           path="/approved"
           element={
             <ProtectedRoute requiredRole="admin">
@@ -326,9 +326,9 @@ function App() {
               </AdminLayout>
             </ProtectedRoute>
           }
-        />
+        /> */}
 
-        <Route
+        {/* <Route
           path="/rejected"
           element={
             <ProtectedRoute requiredRole="admin">
@@ -337,7 +337,7 @@ function App() {
               </AdminLayout>
             </ProtectedRoute>
           }
-        />
+        /> */}
 
         {/* <Route
           path="/access-levels"
