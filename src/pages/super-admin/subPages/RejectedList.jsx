@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo,} from 'react';
 import { useNavigate } from 'react-router-dom';
 import SuperAdminNavbar from "../../../components/SuperAdminNavbar";
 import { FiSearch, FiFilter, FiX, FiUser, FiDollarSign, FiCalendar, FiXCircle, FiChevronRight, FiRefreshCw } from 'react-icons/fi';
@@ -18,7 +18,7 @@ const RejectedList = () => {
   const navigate = useNavigate();
 
   // Dummy data for rejected quotations
-  const rejectedQuotations = [
+  const rejectedQuotations = useMemo(() => [
     {
       id: 'QT-R101',
       customer: 'Auto Parts Inc',
@@ -99,7 +99,7 @@ const RejectedList = () => {
       notes: 'Project put on hold by customer due to funding issues.',
       canBeRevised: false
     },
-  ];
+  ], []);
 
   // Get unique values for filters
   const salespersons = useMemo(() => {

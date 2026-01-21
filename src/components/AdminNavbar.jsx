@@ -1,5 +1,3 @@
-
-//import ThemeToggle from "../ThemeToggle";
 import { useNavigate, NavLink } from "react-router-dom";
 import {
   FiHome,
@@ -11,7 +9,7 @@ import {
   FiLogOut,
   FiMenu,
   FiFilePlus,
-  FiX
+  FiX,
 } from "react-icons/fi";
 
 export default function AdminNavbar({ open, setOpen }) {
@@ -23,8 +21,16 @@ export default function AdminNavbar({ open, setOpen }) {
     { name: "Quotation Requests", icon: <FiClock />, path: "/admin/pending" },
     { name: "Approved", icon: <FiCheckCircle />, path: "/admin/approved" },
     { name: "Rejected", icon: <FiXCircle />, path: "/admin/rejected" },
-    { name: "Product Management", icon: <FiShield />, path: "/product-management" },
-    { name: "Create Quotation", icon: <FiFilePlus />, path: "/create-quotation" },
+    {
+      name: "Product Management",
+      icon: <FiShield />,
+      path: "/product-management",
+    },
+    {
+      name: "Create Quotation",
+      icon: <FiFilePlus />,
+      path: "/create-quotation",
+    },
   ];
 
   const handleLogout = () => {
@@ -33,34 +39,33 @@ export default function AdminNavbar({ open, setOpen }) {
     navigate("/");
   };
 
-
   // return (
   //   <>
 
   //     {/* Mobile Top Bar */}
   //     <div className="lg:hidden flex items-center justify-between p-4 bg-[#0B1220] text-white fixed w-full z-50 h-16">
-  //       <img 
-  //         src="https://coppergat.com/wp-content/uploads/2023/02/1.webp" 
-  //         alt="logo" 
+  //       <img
+  //         src="https://coppergat.com/wp-content/uploads/2023/02/1.webp"
+  //         alt="logo"
   //         className="h-8 w-auto object-contain"
   //       />
   //       <button onClick={() => setOpen(!open)} className="text-2xl">
   //         {open ? <FiX /> : <FiMenu />}
   //       </button>
-        
+
   //     </div>
 
   //     {/* Sidebar */}
   //     <div
   //       className={`fixed top-0 left-0 h-screen w-64 bg-[#0B1220] text-gray-300 shadow-xl z-40
-  //         transform ${open ? "translate-x-0" : "-translate-x-full"} 
+  //         transform ${open ? "translate-x-0" : "-translate-x-full"}
   //         transition-transform duration-300 lg:translate-x-0 lg:static lg:sticky lg:top-0 lg:h-screen`}
   //     >
   //       {/* Logo - Only the logo, no text or icon */}
   //       <div className="flex justify-center p-6 border-b border-gray-700">
-  //         <img 
-  //           src="https://coppergat.com/wp-content/uploads/2023/02/1.webp" 
-  //           alt="logo" 
+  //         <img
+  //           src="https://coppergat.com/wp-content/uploads/2023/02/1.webp"
+  //           alt="logo"
   //           className="h-10 w-auto object-contain"
   //         />
   //       </div>
@@ -105,7 +110,7 @@ export default function AdminNavbar({ open, setOpen }) {
 
   //     {/* Overlay for mobile when sidebar is open */}
   //     {open && (
-  //       <div 
+  //       <div
   //         className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
   //         onClick={() => setOpen(false)}
   //       />
@@ -118,9 +123,9 @@ export default function AdminNavbar({ open, setOpen }) {
       <div className="lg:hidden flex items-center justify-between p-4 bg-[#0B1220] text-white fixed w-full z-50 h-16">
         <div className="h-8 flex items-center">
           <div className="bg-white p-2 rounded-lg shadow-sm">
-            <img 
-              src="https://coppergat.com/wp-content/uploads/2023/02/1.webp" 
-              alt="logo" 
+            <img
+              src="https://coppergat.com/wp-content/uploads/2023/02/1.webp"
+              alt="logo"
               className="h-8 w-auto object-contain"
             />
           </div>
@@ -140,13 +145,13 @@ export default function AdminNavbar({ open, setOpen }) {
         <div className="flex justify-center items-center p-6 border-b border-gray-700">
           {/* Logo - Hidden on mobile, shown on desktop */}
           <div className="bg-white p-3 rounded-lg shadow-sm lg:block hidden">
-            <img 
-              src="https://coppergat.com/wp-content/uploads/2023/02/1.webp" 
-              alt="logo" 
+            <img
+              src="https://coppergat.com/wp-content/uploads/2023/02/1.webp"
+              alt="logo"
               className="h-10 w-auto object-contain"
             />
           </div>
-          
+
           {/* Empty space on mobile - same height as logo */}
           <div className="h-10 lg:hidden"></div>
         </div>
@@ -191,7 +196,7 @@ export default function AdminNavbar({ open, setOpen }) {
 
       {/* Overlay for mobile when sidebar is open */}
       {open && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-30 lg:hidden"
           onClick={() => setOpen(false)}
         />
@@ -199,4 +204,3 @@ export default function AdminNavbar({ open, setOpen }) {
     </>
   );
 }
-

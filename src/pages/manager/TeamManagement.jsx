@@ -239,17 +239,17 @@ const TeamManagement = () => {
   };
 
   // Calculate performance metrics
-  const calculatePerformance = (member) => {
-    const approvalRate = member.quotationsCreated > 0 
-      ? ((member.quotationsApproved / member.quotationsCreated) * 100).toFixed(1)
-      : 0;
+  // const calculatePerformance = (member) => {
+  //   const approvalRate = member.quotationsCreated > 0 
+  //     ? ((member.quotationsApproved / member.quotationsCreated) * 100).toFixed(1)
+  //     : 0;
     
-    const winRate = member.quotationsApproved > 0
-      ? ((member.quotationsWon / member.quotationsApproved) * 100).toFixed(1)
-      : 0;
+  //   const winRate = member.quotationsApproved > 0
+  //     ? ((member.quotationsWon / member.quotationsApproved) * 100).toFixed(1)
+  //     : 0;
     
-    return { approvalRate, winRate };
-  };
+  //   return { approvalRate, winRate };
+  // };
 
   return (
     <div className="p-4 sm:p-6 bg-gray-900 min-h-screen text-white">
@@ -284,7 +284,7 @@ const TeamManagement = () => {
         {/* Active Members Card - Clickable to navigate to ActiveMembers page */}
         <div 
           className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700 cursor-pointer hover:border-blue-500 transition-colors duration-200"
-          onClick={() => navigate('/manager/active-members')}
+          onClick={() => navigate('/active-members')}
         >
           <p className="text-gray-400 text-sm sm:text-base">Active Members</p>
           <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">
@@ -297,7 +297,7 @@ const TeamManagement = () => {
         {/* Active Quotations Card - Clickable to navigate to ActiveQuotations page */}
         <div 
           className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700 cursor-pointer hover:border-yellow-500 transition-colors duration-200"
-          onClick={() => navigate('/manager/active-quotations')}
+          onClick={() => navigate('/active-quotations')}
         >
           <p className="text-gray-400 text-sm sm:text-base">Active Quotations</p>
           <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">

@@ -1,30 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 
 const ManagerProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [profileData, setProfileData] = useState({
-    name: 'Sarah Wilson',
-    email: 'sarah.wilson@company.com',
-    phone: '+1 (555) 987-6543',
-    position: 'Sales Manager',
-    department: 'Sales',
-    joinDate: '2022-08-15',
-    teamSize: '8 members',
-    address: '456 Management Avenue, Suite 200\nNew York, NY 10001',
-    bio: 'Experienced sales manager with 8+ years in team leadership and sales strategy development.'
+    name: "Sarah Wilson",
+    email: "sarah.wilson@company.com",
+    phone: "+1 (555) 987-6543",
+    position: "Sales Manager",
+    department: "Sales",
+    joinDate: "2022-08-15",
+    teamSize: "8 members",
+    address: "456 Management Avenue, Suite 200\nNew York, NY 10001",
+    bio: "Experienced sales manager with 8+ years in team leadership and sales strategy development.",
   });
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setProfileData(prev => ({
+    setProfileData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
   const handleSave = () => {
     setIsEditing(false);
-    console.log('Profile saved:', profileData);
+    console.log("Profile saved:", profileData);
   };
 
   const handleCancel = () => {
@@ -32,10 +32,10 @@ const ManagerProfile = () => {
   };
 
   const teamStats = [
-    { label: 'Team Members', value: '8', change: '+2' },
-    { label: 'Team Revenue', value: '$94.6K', change: '+15%' },
-    { label: 'Success Rate', value: '70.5%', change: '+2.3%' },
-    { label: 'Active Projects', value: '24', change: '+4' }
+    { label: "Team Members", value: "8", change: "+2" },
+    { label: "Team Revenue", value: "$94.6K", change: "+15%" },
+    { label: "Success Rate", value: "70.5%", change: "+2.3%" },
+    { label: "Active Projects", value: "24", change: "+4" },
   ];
 
   return (
@@ -44,12 +44,14 @@ const ManagerProfile = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">My Profile</h1>
-          <p className="text-gray-400 mt-1">Manage your personal and professional information</p>
+          <p className="text-gray-400 mt-1">
+            Manage your personal and professional information
+          </p>
         </div>
-        
+
         <div className="flex gap-3">
           {!isEditing ? (
-            <button 
+            <button
               onClick={() => setIsEditing(true)}
               className="bg-green-600 hover:bg-green-700 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold text-white flex gap-2 items-center transition-colors duration-200"
             >
@@ -57,13 +59,13 @@ const ManagerProfile = () => {
             </button>
           ) : (
             <>
-              <button 
+              <button
                 onClick={handleCancel}
                 className="bg-gray-600 hover:bg-gray-700 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold text-white flex gap-2 items-center transition-colors duration-200"
               >
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={handleSave}
                 className="bg-green-600 hover:bg-green-700 px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-semibold text-white flex gap-2 items-center transition-colors duration-200"
               >
@@ -82,7 +84,9 @@ const ManagerProfile = () => {
             <h2 className="text-xl font-bold mb-4">Personal Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-gray-400 text-sm mb-2">Full Name</label>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Full Name
+                </label>
                 {isEditing ? (
                   <input
                     type="text"
@@ -95,9 +99,11 @@ const ManagerProfile = () => {
                   <p className="text-white font-medium">{profileData.name}</p>
                 )}
               </div>
-              
+
               <div>
-                <label className="block text-gray-400 text-sm mb-2">Email</label>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Email
+                </label>
                 {isEditing ? (
                   <input
                     type="email"
@@ -110,9 +116,11 @@ const ManagerProfile = () => {
                   <p className="text-white font-medium">{profileData.email}</p>
                 )}
               </div>
-              
+
               <div>
-                <label className="block text-gray-400 text-sm mb-2">Phone</label>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Phone
+                </label>
                 {isEditing ? (
                   <input
                     type="tel"
@@ -125,9 +133,11 @@ const ManagerProfile = () => {
                   <p className="text-white font-medium">{profileData.phone}</p>
                 )}
               </div>
-              
+
               <div>
-                <label className="block text-gray-400 text-sm mb-2">Position</label>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Position
+                </label>
                 <p className="text-white font-medium">{profileData.position}</p>
               </div>
             </div>
@@ -138,22 +148,32 @@ const ManagerProfile = () => {
             <h2 className="text-xl font-bold mb-4">Professional Details</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-gray-400 text-sm mb-2">Department</label>
-                <p className="text-white font-medium">{profileData.department}</p>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Department
+                </label>
+                <p className="text-white font-medium">
+                  {profileData.department}
+                </p>
               </div>
-              
+
               <div>
-                <label className="block text-gray-400 text-sm mb-2">Join Date</label>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Join Date
+                </label>
                 <p className="text-white font-medium">{profileData.joinDate}</p>
               </div>
-              
+
               <div>
-                <label className="block text-gray-400 text-sm mb-2">Team Size</label>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Team Size
+                </label>
                 <p className="text-white font-medium">{profileData.teamSize}</p>
               </div>
-              
+
               <div className="md:col-span-2">
-                <label className="block text-gray-400 text-sm mb-2">Address</label>
+                <label className="block text-gray-400 text-sm mb-2">
+                  Address
+                </label>
                 {isEditing ? (
                   <textarea
                     name="address"
@@ -163,10 +183,12 @@ const ManagerProfile = () => {
                     className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-green-500 resize-none"
                   />
                 ) : (
-                  <p className="text-white font-medium whitespace-pre-line">{profileData.address}</p>
+                  <p className="text-white font-medium whitespace-pre-line">
+                    {profileData.address}
+                  </p>
                 )}
               </div>
-              
+
               <div className="md:col-span-2">
                 <label className="block text-gray-400 text-sm mb-2">Bio</label>
                 {isEditing ? (
@@ -194,8 +216,10 @@ const ManagerProfile = () => {
             </div>
             <h3 className="text-lg font-bold text-white">{profileData.name}</h3>
             <p className="text-gray-400 text-sm">{profileData.position}</p>
-            <p className="text-gray-400 text-sm mt-1">{profileData.department}</p>
-            
+            <p className="text-gray-400 text-sm mt-1">
+              {profileData.department}
+            </p>
+
             <button className="w-full mt-4 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg font-medium transition-colors duration-200">
               Change Photo
             </button>

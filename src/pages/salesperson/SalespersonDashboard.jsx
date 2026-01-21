@@ -16,7 +16,7 @@ import {
 } from "recharts";
 
 // ---------------------------------------------------
-// 🔵 Dummy Data (Replace with your backend data later)
+//  Dummy Data 
 // ---------------------------------------------------
 const quotationStats = {
   approved: 18,

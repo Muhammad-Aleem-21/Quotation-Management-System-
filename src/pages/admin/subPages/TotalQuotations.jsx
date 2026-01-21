@@ -15,7 +15,7 @@ const TotalQuotations = () => {
   const navigate = useNavigate();
 
   // Sample data for all quotations under the manager
-  const allQuotations = [
+  const allQuotations = useMemo(() => [
     {
       id: 'QT-1001',
       salesperson: 'John D.',
@@ -184,7 +184,7 @@ const TotalQuotations = () => {
       reason: 'Technical limitations',
       daysSince: 40
     }
-  ];
+  ], []);
 
   // Get unique salespersons for filter
   const salespersons = useMemo(() => {

@@ -17,7 +17,7 @@ const ActiveList = () => {
   const navigate = useNavigate();
 
   // Dummy data for active users
-  const users = [
+  const users = useMemo(() => [
     {
       id: 1,
       fullName: "John Doe",
@@ -186,7 +186,7 @@ const ActiveList = () => {
         successRate: "N/A"
       }
     },
-  ];
+  ], []);
 
   // Get unique values for filters
   const roles = useMemo(() => {

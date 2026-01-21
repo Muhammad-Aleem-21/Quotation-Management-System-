@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ManagerNavbar from "../../../components/ManagerNavbar";
 import { FiSearch, FiFilter, FiX } from 'react-icons/fi';
@@ -15,7 +15,7 @@ const ActiveQuotations = () => {
   const navigate = useNavigate();
 
   // Dummy data for active quotations (approved but not won yet)
-  const activeQuotations = [
+  const activeQuotations = useMemo(() => [
     {
       id: 'QT-101',
       salesperson: 'John Smith',
@@ -100,7 +100,7 @@ const ActiveQuotations = () => {
       paymentStatus: 'Payment Initiated',
       projectStatus: 'Design Phase'
     },
-  ];
+  ], []);
 
   // Get unique salespersons for filter
   const salespersons = useMemo(() => {

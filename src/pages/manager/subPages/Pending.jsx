@@ -17,7 +17,7 @@ const Pending = () => {
   const navigate = useNavigate();
 
   // Dummy data for pending quotations
-  const pendingQuotations = [
+  const pendingQuotations = useMemo(() => [
     {
       id: 'QT-001',
       salesperson: 'John D.',
@@ -130,7 +130,7 @@ const Pending = () => {
       priority: 'medium',
       description: 'Smart home automation system'
     },
-  ];
+  ], []);
 
   // Get unique salespersons for filter
   const salespersons = useMemo(() => {
@@ -176,15 +176,19 @@ const Pending = () => {
           comparison = new Date(b.date) - new Date(a.date);
           break;
         case 'amount':
-          comparison = parseFloat(b.amount.replace('$', '').replace(',', '')) - 
+          {
+            comparison = parseFloat(b.amount.replace('$', '').replace(',', '')) - 
                      parseFloat(a.amount.replace('$', '').replace(',', ''));
+          }
           break;
         case 'salesperson':
           comparison = a.salesperson.localeCompare(b.salesperson);
           break;
         case 'priority':
-          const priorityOrder = { high: 3, medium: 2, low: 1 };
-          comparison = priorityOrder[b.priority] - priorityOrder[a.priority];
+          {
+            const priorityOrder = { high: 3, medium: 2, low: 1 };
+            comparison = priorityOrder[b.priority] - priorityOrder[a.priority];
+          }
           break;
         case 'daysPending':
           comparison = b.daysPending - a.daysPending;

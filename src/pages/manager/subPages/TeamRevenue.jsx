@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ManagerNavbar from "../../../components/ManagerNavbar";
 import { FiSearch, FiFilter, FiX } from 'react-icons/fi';
@@ -15,7 +15,7 @@ const TeamRevenue = () => {
   const navigate = useNavigate();
 
   // Dummy data for team revenue (approved and payment completed)
-  const teamRevenueQuotations = [
+  const teamRevenueQuotations = useMemo(() => [
     {
       id: 'QT-201',
       salesperson: 'John Smith',
@@ -86,7 +86,7 @@ const TeamRevenue = () => {
       paymentStatus: 'Completed',
       projectStatus: 'Completed'
     },
-  ];
+  ], []);
 
   // Get unique salespersons for filter
   const salespersons = useMemo(() => {

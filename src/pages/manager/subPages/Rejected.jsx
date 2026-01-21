@@ -15,7 +15,7 @@ const Rejected = () => {
   const navigate = useNavigate();
 
   // Dummy data for rejected quotations
-  const rejectedQuotations = [
+  const rejectedQuotations = useMemo(() => [
     {
       id: 'QT-101',
       salesperson: 'John D.',
@@ -136,7 +136,7 @@ const Rejected = () => {
       description: 'Lack of technical expertise for specific integration',
       daysAgo: 23
     },
-  ];
+  ], []);
 
   // Get unique salespersons for filter
   const salespersons = useMemo(() => {

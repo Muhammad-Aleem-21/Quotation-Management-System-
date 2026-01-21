@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo,} from 'react';
 import { useNavigate } from 'react-router-dom';
 import SuperAdminNavbar from "../../../components/SuperAdminNavbar";
 import { FiSearch, FiFilter, FiX, FiMail, FiPhone, FiMapPin, FiFileText, FiCheckCircle, FiXCircle, FiAward, FiUser } from 'react-icons/fi';
@@ -11,7 +11,7 @@ const SalespersonList = () => {
   const navigate = useNavigate();
 
   // Dummy data for salespersons
-  const salespersons = [
+  const salespersons = useMemo(() => [
     {
       id: 'SP-001',
       fullName: 'John Doe',
@@ -180,7 +180,7 @@ const SalespersonList = () => {
         successRate: '85.7%'
       }
     },
-  ];
+  ], []);
 
   const filteredSalespersons = useMemo(() => {
     let result = [...salespersons];

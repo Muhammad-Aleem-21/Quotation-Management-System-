@@ -11,7 +11,7 @@ const ManagerList = () => {
   const navigate = useNavigate();
 
   // Dummy data for managers
-  const managers = [
+  const managers = useMemo(() => [
     {
       id: 'MGR-001',
       fullName: 'Emma Rodriguez',
@@ -92,7 +92,7 @@ const ManagerList = () => {
         avgResponseTime: '3.8 hours'
       }
     },
-  ];
+  ], []);
 
   const filteredManagers = useMemo(() => {
     let result = [...managers];

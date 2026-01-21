@@ -17,7 +17,7 @@ const WinList = () => {
   const navigate = useNavigate();
 
   // Dummy data for win quotations (accepted + payment done)
-  const winQuotations = [
+  const winQuotations = useMemo(() => [
     {
       id: 'QT-W101',
       customer: 'TechCorp Solutions',
@@ -103,7 +103,7 @@ const WinList = () => {
       description: 'Commercial solar power system',
       commission: '$1,830'
     },
-  ];
+  ], []);
 
   // Get unique values for filters
   const salespersons = useMemo(() => {

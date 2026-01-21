@@ -11,7 +11,7 @@ const AdminList = () => {
   const navigate = useNavigate();
 
   // Dummy data for admins
-  const admins = [
+  const admins = useMemo(() => [
     {
       id: 'ADM-001',
       fullName: 'Sarah Wilson',
@@ -88,7 +88,7 @@ const AdminList = () => {
         avgResponseTime: '4.1 hours'
       }
     },
-  ];
+  ], []);
 
   const filteredAdmins = useMemo(() => {
     let result = [...admins];

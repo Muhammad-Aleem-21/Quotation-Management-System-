@@ -15,7 +15,7 @@ const ActiveMembers = () => {
   const navigate = useNavigate();
 
   // Dummy data for active sales team members
-  const activeMembers = [
+  const activeMembers = useMemo(() => [
     {
       id: 'SP-001',
       name: 'John Smith',
@@ -76,7 +76,7 @@ const ActiveMembers = () => {
       rejectedQuotations: 1,
       performance: 'Average'
     },
-  ];
+  ], []);
 
   // Filter and sort members based on search and filters
   const filteredMembers = useMemo(() => {

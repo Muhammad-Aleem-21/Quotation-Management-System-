@@ -18,7 +18,7 @@ const PendingList = () => {
   const navigate = useNavigate();
 
   // Dummy data for pending quotations
-  const pendingQuotations = [
+  const pendingQuotations = useMemo(() => [
     {
       id: 'QT-P101',
       customer: 'Retail Chain Stores',
@@ -94,7 +94,7 @@ const PendingList = () => {
       description: 'Full infrastructure migration to cloud',
       managerAssigned: 'Michael Brown'
     },
-  ];
+  ], []);
 
   // Get unique values for filters
   const salespersons = useMemo(() => {
@@ -174,8 +174,10 @@ const PendingList = () => {
           comparison = a.salesperson.localeCompare(b.salesperson);
           break;
         case 'priority':
-          const priorityOrder = { high: 3, medium: 2, low: 1 };
-          comparison = priorityOrder[b.priority] - priorityOrder[a.priority];
+          {
+            const priorityOrder = { high: 3, medium: 2, low: 1 };
+            comparison = priorityOrder[b.priority] - priorityOrder[a.priority];
+          }
           break;
         default:
           comparison = b.daysPending - a.daysPending;
