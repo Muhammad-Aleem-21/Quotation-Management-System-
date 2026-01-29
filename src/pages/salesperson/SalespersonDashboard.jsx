@@ -47,12 +47,16 @@ const COLORS = ["#10B981", "#EF4444", "#F59E0B"]; // green, red, yellow
 // ---------------------------------------------------
 const SalespersonDashboard = () => {
   const navigate = useNavigate(); // Add this line
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+
   return (
     <div className="p-4 sm:p-6 bg-gray-900 min-h-screen text-white">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold">Salesperson Dashboard</h1>
-        <p className="text-gray-400 mt-1">Overview of your quotation performance</p>
+        <p className="text-gray-400 mt-1">
+          Welcome back, <span className="text-orange-400 font-semibold">{user.name || 'Salesperson'}</span>! Overview of your quotation performance
+        </p>
       </div>
 
       {/* Top Stats Cards */}

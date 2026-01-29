@@ -4,5 +4,14 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(),tailwindcss(),],
-})
+  plugins: [react(), tailwindcss()],
+  server: {
+    proxy: {
+      "/api": {
+        target: "http://backend-qms.fortuneitpark.com",
+        changeOrigin: true,
+        secure: false, // Ignore SSL certificate errors
+      },
+    },
+  },
+});

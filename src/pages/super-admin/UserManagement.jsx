@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiX, FiUser, FiMail, FiPhone, FiMapPin, FiLock, FiBriefcase } from 'react-icons/fi';
+import API from '../../api/api';
 
 const UserManagement = () => {
   const navigate = useNavigate();
@@ -11,7 +11,7 @@ const UserManagement = () => {
   
   // Form state
   const [newUser, setNewUser] = useState({
-    role: 'Salesperson',
+    role: 'Admin',
     fullName: '',
     email: '',
     contact: '',
@@ -156,30 +156,56 @@ const UserManagement = () => {
     }));
   };
 
-  const handleFormSubmit = (e) => {
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
-    // Here you would typically make an API call
-    console.log('New user data:', newUser);
-    alert('User added successfully!');
-    setShowAddUserModal(false);
-    // Reset form
-    setNewUser({
-      role: 'Salesperson',
-      fullName: '',
-      email: '',
-      contact: '',
-      address: '',
-      area: '',
-      password: '',
-      confirmPassword: ''
-    });
+
+    // Validation
+    if (newUser.password !== newUser.confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+
+    try {
+      const response = await API.post('/users/create-admin', {
+        name: newUser.fullName,
+        email: newUser.email,
+        password: newUser.password,
+        password_confirmation: newUser.confirmPassword,
+        contact: newUser.contact,
+        address: newUser.address,
+        area: newUser.area
+      });
+
+      if (response.data.success) {
+        alert(response.data.message || 'Admin created successfully!');
+        setShowAddUserModal(false);
+        // Reset form
+        setNewUser({
+          role: 'Admin',
+          fullName: '',
+          email: '',
+          contact: '',
+          address: '',
+          area: '',
+          password: '',
+          confirmPassword: ''
+        });
+        // Optional: Refresh users list if needed
+      } else {
+        alert(response.data.message || 'Failed to create admin');
+      }
+    } catch (error) {
+      console.error('Error creating admin:', error);
+      const errorMessage = error.response?.data?.message || 'An error occurred while creating admin';
+      alert(errorMessage);
+    }
   };
 
   const handleFormCancel = () => {
     setShowAddUserModal(false);
     // Reset form
     setNewUser({
-      role: 'Salesperson',
+      role: 'Admin',
       fullName: '',
       email: '',
       contact: '',
@@ -191,8 +217,6 @@ const UserManagement = () => {
   };
 
   const roleOptions = [
-    { value: 'Salesperson', label: 'Salesperson', color: 'bg-blue-500/20 text-blue-300' },
-    { value: 'Manager', label: 'Manager', color: 'bg-yellow-500/20 text-yellow-300' },
     { value: 'Admin', label: 'Admin', color: 'bg-purple-500/20 text-purple-300' }
   ];
 
@@ -525,32 +549,17 @@ const UserManagement = () => {
                 <div>
                   <label className="block text-gray-300 font-medium mb-2">
                     <FiBriefcase className="inline-block w-4 h-4 mr-2" />
-                    Select Role *
+                    Role *
                   </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {roleOptions.map((option) => (
-                      <button
-                        type="button"
-                        key={option.value}
-                        onClick={() => setNewUser({...newUser, role: option.value})}
-                        className={`p-4 rounded-xl border transition-all duration-200 ${
-                          newUser.role === option.value 
-                            ? 'border-red-500 bg-red-500/10' 
-                            : 'border-gray-700 bg-gray-750 hover:border-gray-600'
-                        }`}
-                      >
-                        <div className="flex flex-col items-center gap-2">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${option.color}`}>
-                            {option.label}
-                          </span>
-                          <p className="text-sm text-gray-400 text-center">
-                            {option.value === 'Salesperson' && 'Can create quotations'}
-                            {option.value === 'Manager' && 'Can approve/reject quotations'}
-                            {option.value === 'Admin' && 'Full system access'}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
+                  <div className="p-4 rounded-xl border border-red-500 bg-red-500/10">
+                    <div className="flex flex-col items-center gap-2">
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-500/20 text-purple-300">
+                        Admin
+                      </span>
+                      <p className="text-sm text-gray-400 text-center">
+                        Full system access (Only Super Admin can create other Admins)
+                      </p>
+                    </div>
                   </div>
                 </div>
 

@@ -61,13 +61,9 @@ const ManagerDashboard = () => {
       time: "4 hours ago",
       type: "meeting",
     },
-    {
-      action: "Performance review completed",
-      user: "Mike R.",
-      time: "1 day ago",
-      type: "review",
-    },
   ];
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   return (
     <div className="p-4 sm:p-6 bg-gray-900 min-h-screen text-white">
@@ -75,7 +71,7 @@ const ManagerDashboard = () => {
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold">Manager Dashboard</h1>
         <p className="text-gray-400 mt-1">
-          Overview of your team's performance and activities
+          Welcome back, <span className="text-green-400 font-semibold">{user.name || 'Manager'}</span>! Overview of your team's performance and activities
         </p>
       </div>
 

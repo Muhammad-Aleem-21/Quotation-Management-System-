@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import API from "../../api/api";
 import {
   LineChart,
   Line,
@@ -13,6 +14,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { FiPlus } from "react-icons/fi";
+import CreateManagerForm from "./CreateManagerForm"; // Import the form component
 
 const DashboardData = {
   stats: [
@@ -110,6 +113,53 @@ const COLORS = ["#16a34a", "#dc2626", "#f59e0b"]; // green, red, yellow
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const [showCreateManagerForm, setShowCreateManagerForm] = useState(false);
+
+  const handleCreateManager = async (managerData) => {
+    const payload = {
+      name: managerData.name,
+      email: managerData.email,
+      password: managerData.password,
+      password_confirmation: managerData.confirmPassword,
+      contact: managerData.contact,
+      address: managerData.address,
+      region: managerData.region,
+      role: 'manager', 
+      team_size: Number(managerData.teamSize),
+      admin_id: user.id, // Explicitly linking the admin who is creating the manager
+      created_by_admin: user.id // Also adding this variation to be safe
+    };
+
+    console.log("Sending Create Manager Payload:", payload);
+
+    try {
+      const response = await API.post('/users/create-manager', payload);
+
+      if (response.data.success) {
+        alert(response.data.message || 'Manager created successfully!');
+        setShowCreateManagerForm(false);
+      } else {
+        alert(response.data.message || 'Failed to create manager');
+      }
+    } catch (error) {
+      console.error('Error creating manager:', error);
+      console.error('Error details:', error.response?.data);
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.error || 
+                          'An error occurred while creating manager';
+      
+      // If there are validation errors, show them
+      const validationErrors = error.response?.data?.errors;
+      if (validationErrors) {
+        const firstError = Object.values(validationErrors).flat()[0];
+        alert(`Validation Error: ${firstError}`);
+      } else {
+        alert(errorMessage);
+      }
+    }
+  };
 
   return (
     <div
@@ -117,13 +167,23 @@ export default function AdminDashboard() {
                     lg:ml-10 mt-14 lg:mt-0"
     >
       {/* ---------------- Header Row ---------------- */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div>
           <h1 className="text-3xl font-bold">Dashboard Overview</h1>
           <p className="text-gray-400">
-            Welcome back! Here's what's happening today.
+            Welcome back, <span className="text-blue-400 font-semibold">{user.name || 'Admin'}</span>! Here's what's happening today.
           </p>
         </div>
+        
+        {/* Create Manager Button */}
+        <button
+          onClick={() => setShowCreateManagerForm(true)}
+          className="px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all duration-200 flex items-center gap-2 whitespace-nowrap shadow-lg hover:shadow-xl"
+        >
+          <FiPlus className="text-xl" />
+          <span className="hidden sm:inline">Create New Manager</span>
+          <span className="sm:hidden">Add Manager</span>
+        </button>
       </div>
 
       {/* ---------------- Quotation Stats Grid ---------------- */}
@@ -316,6 +376,14 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Create Manager Form Modal */}
+      {showCreateManagerForm && (
+        <CreateManagerForm
+          onClose={() => setShowCreateManagerForm(false)}
+          onSubmit={handleCreateManager}
+        />
+      )}
     </div>
   );
 }

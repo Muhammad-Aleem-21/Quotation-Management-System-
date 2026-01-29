@@ -1,6 +1,6 @@
-
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import API from "../../api/api";
 import {
   BarChart,
   Bar,
@@ -18,53 +18,109 @@ import {
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
 
-  // Sample data
-  const systemStats = {
-    totalUsers: 156,
-    activeUsers: 142,
-    admins: 8,
-    managers: 12,
-    salespersons: 45,
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const response = await API.get("/dashboard/stats");
+        if (response.data.success) {
+          setStats(response.data.dashboard_stats);
+        } else {
+          setError("Failed to fetch dashboard statistics");
+        }
+      } catch (err) {
+        console.error("Error fetching dashboard stats:", err);
+        setError("An error occurred while loading dashboard data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  // Format data for components
+  const displayStats = {
+    totalUsers: stats?.total_users || 0,
+    admins: stats?.total_admins || 0,
+    managers: stats?.total_managers || 0,
+    salespersons: stats?.total_salespersons || 0,
+    // Keep dummy values for these as they are not in the current stats API response
+    activeUsers: Math.floor((stats?.total_users || 0) * 0.9), // Estimating based on total
     totalQuotations: 847,
     acceptedQuotations: 512,
     rejectedQuotations: 185,
     pendingQuotations: 150,
     winQuotations: 420,
-    revenue: "$124.5K",
-    systemHealth: "98%",
-    storageUsed: "2.3GB"
   };
+
+  const roleDistribution = [
+    { name: "Salespersons", value: displayStats.salespersons },
+    { name: "Managers", value: displayStats.managers },
+    { name: "Admins", value: displayStats.admins },
+    { name: "Super Admins", value: stats?.total_users - (displayStats.salespersons + displayStats.managers + displayStats.admins) || 2 }
+  ];
+
+  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
+
+  const recentActivities = stats?.recent_users?.map(u => ({
+    action: "New user joined",
+    user: u.name,
+    time: new Date(u.created_at).toLocaleDateString(),
+    type: "user"
+  })) || [];
 
   const userGrowth = [
     { month: "Jan", users: 120, quotations: 180 },
     { month: "Feb", users: 135, quotations: 210 },
     { month: "Mar", users: 142, quotations: 195 },
     { month: "Apr", users: 148, quotations: 230 },
-    { month: "May", users: 156, quotations: 245 },
+    { month: "May", users: displayStats.totalUsers, quotations: 245 },
   ];
 
-  const roleDistribution = [
-    { name: "Salespersons", value: 45 },
-    { name: "Managers", value: 12 },
-    { name: "Admins", value: 8 },
-    { name: "Super Admins", value: 2 }
-  ];
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-gray-400 animate-pulse">Loading dashboard statistics...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const recentActivities = [
-    { action: "New user registered", user: "john.doe", time: "2 mins ago", type: "user" },
-    { action: "System backup completed", user: "System", time: "1 hour ago", type: "system" },
-    { action: "Quotation approved", user: "sarah.wilson", time: "2 hours ago", type: "quotation" },
-    { action: "Payment completed for quotation #Q-245", user: "alex.turner", time: "3 hours ago", type: "payment" }
-  ];
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white p-4">
+        <div className="bg-gray-800 p-8 rounded-2xl border border-red-500/30 text-center max-w-md w-full">
+          <div className="text-4xl mb-4">⚠️</div>
+          <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
+          <p className="text-gray-400 mb-6">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="w-full py-3 bg-red-600 hover:bg-red-700 rounded-xl transition-colors font-medium"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 sm:p-6 bg-gray-900 min-h-screen text-white">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold">Super Admin Dashboard</h1>
-        <p className="text-gray-400 mt-1">Complete system overview and management</p>
+        <p className="text-gray-400 mt-1">
+          Welcome back, <span className="text-red-400 font-semibold">{user.name || 'Super Admin'}</span>! Complete system overview and management
+        </p>
       </div>
 
       {/* System Stats - User Cards */}
@@ -77,9 +133,9 @@ const SuperAdminDashboard = () => {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-gray-400 text-sm sm:text-base">Active Users</p>
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{systemStats.activeUsers}</h2>
+              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{displayStats.activeUsers}</h2>
               <p className="text-green-400 text-xs sm:text-sm mt-1">
-                {((systemStats.activeUsers / systemStats.totalUsers) * 100).toFixed(1)}% of total
+                {((displayStats.activeUsers / displayStats.totalUsers) * 100).toFixed(1)}% of total
               </p>
             </div>
             <div className="w-10 h-10 sm:w-14 sm:h-14 bg-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl">
@@ -96,9 +152,9 @@ const SuperAdminDashboard = () => {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-gray-400 text-sm sm:text-base">Admins</p>
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{systemStats.admins}</h2>
+              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{displayStats.admins}</h2>
               <p className="text-purple-400 text-xs sm:text-sm mt-1">
-                {((systemStats.admins / systemStats.totalUsers) * 100).toFixed(1)}% of users
+                {((displayStats.admins / displayStats.totalUsers) * 100).toFixed(1)}% of users
               </p>
             </div>
             <div className="w-10 h-10 sm:w-14 sm:h-14 bg-purple-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl">
@@ -115,9 +171,9 @@ const SuperAdminDashboard = () => {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-gray-400 text-sm sm:text-base">Managers</p>
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{systemStats.managers}</h2>
+              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{displayStats.managers}</h2>
               <p className="text-blue-400 text-xs sm:text-sm mt-1">
-                {((systemStats.managers / systemStats.totalUsers) * 100).toFixed(1)}% of users
+                {((displayStats.managers / displayStats.totalUsers) * 100).toFixed(1)}% of users
               </p>
             </div>
             <div className="w-10 h-10 sm:w-14 sm:h-14 bg-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl">
@@ -134,9 +190,9 @@ const SuperAdminDashboard = () => {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-gray-400 text-sm sm:text-base">Salespersons</p>
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{systemStats.salespersons}</h2>
+              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{displayStats.salespersons}</h2>
               <p className="text-red-400 text-xs sm:text-sm mt-1">
-                {((systemStats.salespersons / systemStats.totalUsers) * 100).toFixed(1)}% of users
+                {((displayStats.salespersons / displayStats.totalUsers) * 100).toFixed(1)}% of users
               </p>
             </div>
             <div className="w-10 h-10 sm:w-14 sm:h-14 bg-red-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl">
@@ -156,9 +212,9 @@ const SuperAdminDashboard = () => {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-gray-400 text-sm sm:text-base">Accepted Quotations</p>
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{systemStats.acceptedQuotations}</h2>
+              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{displayStats.acceptedQuotations}</h2>
               <p className="text-green-400 text-xs sm:text-sm mt-1">
-                {((systemStats.acceptedQuotations / systemStats.totalQuotations) * 100).toFixed(1)}% of total
+                {((displayStats.acceptedQuotations / displayStats.totalQuotations) * 100).toFixed(1)}% of total
               </p>
             </div>
             <div className="w-10 h-10 sm:w-14 sm:h-14 bg-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl">
@@ -175,13 +231,13 @@ const SuperAdminDashboard = () => {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-gray-400 text-sm sm:text-base">Win Quotations</p>
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{systemStats.winQuotations}</h2>
+              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{displayStats.winQuotations}</h2>
               <div className="flex flex-col mt-1">
                 <p className="text-teal-400 text-xs sm:text-sm">
-                  {((systemStats.winQuotations / systemStats.totalQuotations) * 100).toFixed(1)}% of total
+                  {((displayStats.winQuotations / displayStats.totalQuotations) * 100).toFixed(1)}% of total
                 </p>
                 <p className="text-emerald-300 text-xs">
-                  {((systemStats.winQuotations / systemStats.acceptedQuotations) * 100).toFixed(1)}% of accepted
+                  {((displayStats.winQuotations / displayStats.acceptedQuotations) * 100).toFixed(1)}% of accepted
                 </p>
               </div>
             </div>
@@ -199,9 +255,9 @@ const SuperAdminDashboard = () => {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-gray-400 text-sm sm:text-base">Pending Quotations</p>
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{systemStats.pendingQuotations}</h2>
+              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{displayStats.pendingQuotations}</h2>
               <p className="text-yellow-400 text-xs sm:text-sm mt-1">
-                {((systemStats.pendingQuotations / systemStats.totalQuotations) * 100).toFixed(1)}% of total
+                {((displayStats.pendingQuotations / displayStats.totalQuotations) * 100).toFixed(1)}% of total
               </p>
             </div>
             <div className="w-10 h-10 sm:w-14 sm:h-14 bg-yellow-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl">
@@ -218,9 +274,9 @@ const SuperAdminDashboard = () => {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-gray-400 text-sm sm:text-base">Rejected Quotations</p>
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{systemStats.rejectedQuotations}</h2>
+              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{displayStats.rejectedQuotations}</h2>
               <p className="text-red-400 text-xs sm:text-sm mt-1">
-                {((systemStats.rejectedQuotations / systemStats.totalQuotations) * 100).toFixed(1)}% of total
+                {((displayStats.rejectedQuotations / displayStats.totalQuotations) * 100).toFixed(1)}% of total
               </p>
             </div>
             <div className="w-10 h-10 sm:w-14 sm:h-14 bg-red-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl">

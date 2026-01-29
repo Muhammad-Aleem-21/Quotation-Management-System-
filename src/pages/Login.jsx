@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import API from "../api/api";
 
 export default function Login() {
   const [role, setRole] = useState("admin");
@@ -44,42 +45,66 @@ export default function Login() {
     }));
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
 
     // Simple validation
     if (!credentials.username || !credentials.password) {
-      alert("Please enter both username and password");
+      alert("Please enter both email and password");
       return;
     }
 
-    // 🔥 Save the role and user info in localStorage
-    localStorage.setItem("role", role);
-    localStorage.setItem(
-      "user",
-      JSON.stringify({
-        username: credentials.username,
-        role: role,
-        loginTime: new Date().toISOString(),
-      }),
-    );
+    try {
+      const response = await API.post("/login", {
+        email: credentials.username,
+        password: credentials.password,
+      });
+      if (response.data.success) {
+        const { token, user, roles: apiRoles } = response.data;
+        
+        // Map API role names to internal route keys if they differ
+        let normalizedRole = apiRoles[0];
+        if (normalizedRole === "super_admin") normalizedRole = "super-admin";
 
-    // Navigate based on role
-    switch (role) {
-      case "super-admin":
-        navigate("/super-admin-dashboard");
-        break;
-      case "admin":
-        navigate("/admin-dashboard");
-        break;
-      case "manager":
-        navigate("/manager-dashboard");
-        break;
-      case "salesperson":
-        navigate("/sales-dashboard");
-        break;
-      default:
-        navigate("/sales-dashboard");
+        if (normalizedRole !== role) {
+          alert(`Access Denied: You selected ${roles.find(r => r.id === role)?.name} but your credentials are for ${roles.find(r => r.id === normalizedRole)?.name}.`);
+          return;
+        }
+
+        localStorage.setItem("token", token);
+        localStorage.setItem("role", normalizedRole);
+        localStorage.setItem(
+          "user",
+          JSON.stringify({
+            ...user,
+            role: normalizedRole,
+            loginTime: new Date().toISOString(),
+          })
+        );
+
+        // Navigate based on normalized role
+        switch (normalizedRole) {
+          case "super-admin":
+            navigate("/super-admin-dashboard");
+            break;
+          case "admin":
+            navigate("/admin-dashboard");
+            break;
+          case "manager":
+            navigate("/manager-dashboard");
+            break;
+          case "salesperson":
+            navigate("/sales-dashboard");
+            break;
+          default:
+            navigate("/sales-dashboard");
+        }
+      } else {
+        alert(response.data.message || "Login failed");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      alert(error.response?.data?.message || "An error occurred during login");
     }
   };
 
@@ -101,7 +126,7 @@ export default function Login() {
         </div>
 
         <p className="text-gray-600 text-center mb-8">
-          Sign in to your account
+          Login to your account
         </p>
 
         {/* Role Selection - 2x2 Grid */}
@@ -183,3 +208,4 @@ export default function Login() {
     </div>
   );
 }
+
