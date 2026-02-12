@@ -140,6 +140,7 @@ import {
   FiFilePlus,
   FiX,
 } from "react-icons/fi";
+import { logoutUser } from "../api/api";
 
 export default function ManagerNavbar({ open, setOpen }) {
   const navigate = useNavigate();
@@ -164,6 +165,7 @@ export default function ManagerNavbar({ open, setOpen }) {
   const handleLogout = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("role");
+    localStorage.removeItem("token");
     navigate("/");
   };
 

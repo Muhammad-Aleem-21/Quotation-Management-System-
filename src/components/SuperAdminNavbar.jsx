@@ -145,6 +145,7 @@ import {
   FiX,
   FiUser,
 } from "react-icons/fi";
+import { logoutUser } from "../api/api";
 
 export default function SuperAdminNavbar({ open, setOpen }) {
   const navigate = useNavigate();
@@ -168,10 +169,17 @@ export default function SuperAdminNavbar({ open, setOpen }) {
     { name: "My Profile", icon: <FiUser />, path: "/super-admin-profile" },
   ];
 
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("role");
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      localStorage.removeItem("token");
+      navigate("/");
+    }
   };
 
   return (

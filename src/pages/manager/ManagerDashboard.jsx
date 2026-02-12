@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { getTeamStats } from "../../api/api";
 import {
   BarChart,
   Bar,
@@ -15,23 +16,13 @@ import {
 
 const ManagerDashboard = () => {
   const navigate = useNavigate();
-  // Sample data
-  const teamStats = {
-    totalTeamMembers: 8,
-    activeQuotations: 24,
-    acceptedQuotations: 18,
-    rejectedQuotations: 6,
-    teamRevenue: "$45.2K",
-    pendingApprovals: 6,
-    approvedThisMonth: 18,
-  };
 
+  // Sample data for charts (fallback until API provides it)
   const teamPerformance = [
-    { name: "John D.", quotations: 12, approved: 8, revenue: "$12.5K" },
-    { name: "Sarah M.", quotations: 10, approved: 7, revenue: "$10.8K" },
-    { name: "Mike R.", quotations: 8, approved: 5, revenue: "$8.2K" },
-    { name: "Emily T.", quotations: 9, approved: 6, revenue: "$9.1K" },
-    { name: "David L.", quotations: 7, approved: 4, revenue: "$6.8K" },
+    { name: "Salesperson A", quotations: 12, approved: 8, revenue: 12500 },
+    { name: "Salesperson B", quotations: 10, approved: 7, revenue: 10800 },
+    { name: "Salesperson C", quotations: 8, approved: 5, revenue: 8200 },
+    { name: "Salesperson D", quotations: 9, approved: 6, revenue: 9100 },
   ];
 
   const monthlyTrend = [
@@ -43,25 +34,53 @@ const ManagerDashboard = () => {
   ];
 
   const recentActivities = [
-    {
-      action: "New quotation submitted",
-      user: "Sarah M.",
-      time: "30 mins ago",
-      type: "quotation",
-    },
-    {
-      action: "Quotation approved",
-      user: "John D.",
-      time: "2 hours ago",
-      type: "approval",
-    },
-    {
-      action: "Team meeting scheduled",
-      user: "System",
-      time: "4 hours ago",
-      type: "meeting",
-    },
+    { action: "New quotation submitted", user: "Salesperson A", time: "30 mins ago", type: "quotation" },
+    { action: "Quotation approved", user: "Salesperson B", time: "2 hours ago", type: "approval" },
   ];
+
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalSalespersons: 0,
+    activeQuotations: 0,
+    teamRevenue: 0,
+    pendingApprovals: 0,
+    rejectedQuotations: 0
+  });
+
+  useEffect(() => {
+    fetchDashboardStats();
+  }, []);
+
+  const fetchDashboardStats = async () => {
+    try {
+      setLoading(true);
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const userId = user.id?.toString();
+
+      const response = await getTeamStats();
+      if (response.data.success && response.data.dashboard_stats) {
+        const ds = response.data.dashboard_stats;
+        
+        // Filter my_team by the logged-in manager's ID
+        const myActualTeam = (ds.my_team || []).filter(member => 
+          member.manager_id?.toString() === userId || 
+          member.parent_id?.toString() === userId
+        );
+
+        setStats({
+          totalSalespersons: myActualTeam.length,
+          activeQuotations: ds.active_quotations || 0,
+          teamRevenue: ds.team_revenue || 0,
+          pendingApprovals: ds.pending_approvals || 0,
+          rejectedQuotations: ds.rejected_quotations || 0
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
 
@@ -79,23 +98,22 @@ const ManagerDashboard = () => {
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
         <div
           className="bg-gray-800 p-4 sm:p-6 rounded-xl border border-gray-700 hover:border-green-500 transition-colors duration-200 cursor-pointer"
-          onClick={() => navigate("/active-members")}
+          onClick={() => navigate("/team-management")}
         >
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-gray-400 text-sm sm:text-base">
-                Active Members
+                Total Salespersons
               </h2>
               <p className="text-2xl sm:text-3xl font-bold text-green-400 mt-1 sm:mt-2">
-                5 {/* Replace with your actual count */}
+                {loading ? "..." : stats.totalSalespersons}
               </p>
             </div>
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-600 rounded-xl flex items-center justify-center text-white text-lg sm:text-xl">
               👥
             </div>
           </div>
-          <p className="text-gray-500 text-xs mt-2">Click to view →</p>{" "}
-          {/* Add this line */}
+          <p className="text-gray-500 text-xs mt-2">Click to view →</p>
         </div>
 
         <div
@@ -108,7 +126,7 @@ const ManagerDashboard = () => {
                 Active Quotations
               </h2>
               <p className="text-2xl sm:text-3xl font-bold text-yellow-400 mt-1 sm:mt-2">
-                6 {/* Replace with your actual count */}
+                {loading ? "..." : stats.activeQuotations}
               </p>
             </div>
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-yellow-600 rounded-xl flex items-center justify-center text-white text-lg sm:text-xl">
@@ -140,7 +158,7 @@ const ManagerDashboard = () => {
                 Team Revenue
               </h2>
               <p className="text-2xl sm:text-3xl font-bold text-purple-400 mt-1 sm:mt-2">
-                $43,000 {/* Replace with your actual amount */}
+                {loading ? "..." : (typeof stats.teamRevenue === 'number' ? `$${stats.teamRevenue.toLocaleString()}` : stats.teamRevenue)}
               </p>
             </div>
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-600 rounded-xl flex items-center justify-center text-white text-lg sm:text-xl">
@@ -176,7 +194,7 @@ const ManagerDashboard = () => {
                 Pending Approvals
               </p>
               <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">
-                {teamStats.pendingApprovals}
+                {loading ? "..." : stats.pendingApprovals}
               </h2>
               <p className="text-orange-400 text-xs sm:text-sm mt-1">
                 Requires action
@@ -198,14 +216,10 @@ const ManagerDashboard = () => {
                 Rejected Quotations
               </p>
               <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">
-                {teamStats.rejectedQuotations}
+                {loading ? "..." : stats.rejectedQuotations}
               </h2>
               <p className="text-red-400 text-xs sm:text-sm mt-1">
-                {(
-                  (teamStats.rejectedQuotations / teamStats.activeQuotations) *
-                  100
-                ).toFixed(1)}
-                % of active
+                {stats.activeQuotations > 0 ? ((stats.rejectedQuotations / stats.activeQuotations) * 100).toFixed(1) : 0}% of active
               </p>
             </div>
             <div className="w-10 h-10 sm:w-14 sm:h-14 bg-red-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl">

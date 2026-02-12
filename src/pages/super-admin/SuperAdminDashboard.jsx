@@ -14,26 +14,48 @@ import {
   Pie,
   Cell
 } from "recharts";
-
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
 
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [quotationCounts, setQuotationCounts] = useState({
+    accepted: 0,
+    rejected: 0,
+    pending: 0,
+    win: 0,
+    total: 0,
+    users: 0
+  });
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         setLoading(true);
+        setError(null);
+        // Step 1: Fetch consolidated dashboard stats
         const response = await API.get("/dashboard/stats");
+        
         if (response.data.success) {
-          setStats(response.data.dashboard_stats);
-        } else {
-          setError("Failed to fetch dashboard statistics");
+          const dashStats = response.data.dashboard_stats;
+          setStats(dashStats);
+          
+          setQuotationCounts(prev => ({
+            ...prev,
+            accepted: dashStats.approved_quotations_count || dashStats.total_approved || 0,
+            rejected: dashStats.rejected_quotations_count || dashStats.total_rejected || 0,
+            pending: dashStats.pending_quotations_count || dashStats.total_pending || 0,
+            win: dashStats.win_quotations_count || dashStats.total_win || 0,
+            total: dashStats.total_quotations || 0,
+            users: dashStats.total_users || 0
+          }));
         }
+
+        // Step 3: Optional detailed fetching removed as dashboard stats should be sufficient
+
       } catch (err) {
-        console.error("Error fetching dashboard stats:", err);
+        console.error("Error fetching dashboard data:", err);
         setError("An error occurred while loading dashboard data");
       } finally {
         setLoading(false);
@@ -49,20 +71,21 @@ const SuperAdminDashboard = () => {
     admins: stats?.total_admins || 0,
     managers: stats?.total_managers || 0,
     salespersons: stats?.total_salespersons || 0,
-    // Keep dummy values for these as they are not in the current stats API response
-    activeUsers: Math.floor((stats?.total_users || 0) * 0.9), // Estimating based on total
-    totalQuotations: 847,
-    acceptedQuotations: 512,
-    rejectedQuotations: 185,
-    pendingQuotations: 150,
-    winQuotations: 420,
+    activeUsers: quotationCounts.users || stats?.total_users || 0,
+    
+    // Real Quotation Stats
+    totalQuotations: quotationCounts.total || 1, // Avoid division by zero
+    acceptedQuotations: quotationCounts.accepted,
+    rejectedQuotations: quotationCounts.rejected,
+    pendingQuotations: quotationCounts.pending,
+    winQuotations: quotationCounts.win,
   };
 
   const roleDistribution = [
     { name: "Salespersons", value: displayStats.salespersons },
     { name: "Managers", value: displayStats.managers },
     { name: "Admins", value: displayStats.admins },
-    { name: "Super Admins", value: stats?.total_users - (displayStats.salespersons + displayStats.managers + displayStats.admins) || 2 }
+    { name: "Super Admins", value: Math.max(0, (stats?.total_users || 0) - (displayStats.salespersons + displayStats.managers + displayStats.admins)) || 1 }
   ];
 
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
@@ -127,16 +150,16 @@ const SuperAdminDashboard = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
         {/* Active Users */}
         <div 
-          onClick={() => navigate('/active-list')}
+          onClick={() => navigate('/total-users')}
           className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 p-4 sm:p-6 rounded-xl border border-green-500/30 cursor-pointer hover:scale-[1.02] transition-transform duration-200"
         >
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-gray-400 text-sm sm:text-base">Active Users</p>
+              <p className="text-gray-400 text-sm sm:text-base">Total Users</p>
               <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{displayStats.activeUsers}</h2>
-              <p className="text-green-400 text-xs sm:text-sm mt-1">
+              {/* <p className="text-green-400 text-xs sm:text-sm mt-1">
                 {((displayStats.activeUsers / displayStats.totalUsers) * 100).toFixed(1)}% of total
-              </p>
+              </p> */}
             </div>
             <div className="w-10 h-10 sm:w-14 sm:h-14 bg-green-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl">
               👥

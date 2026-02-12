@@ -25,6 +25,7 @@ import ApprovedAdmin from "./pages/admin/subPages/Approved";
 import RejectedAdmin from "./pages/admin/subPages/Rejected";
 import Managers from "./pages/admin/subPages/Managers";
 import Win from "./pages/admin/subPages/Win";
+import TeamManagementAdmin from "./pages/admin/TeamManagement";
 
 //salesperson Imports
 import MyQuotations from "./pages/salesperson/MyQuotations";
@@ -33,6 +34,7 @@ import AcceptedQuotations from "./pages/salesperson/subPages/AcceptedQuotations"
 import RejectedQuotations from "./pages/salesperson/subPages/RejectedQuotations";
 import PendingQuotations from "./pages/salesperson/subPages/PendingQuotations";
 import WinQuotations from "./pages/salesperson/subPages/WinQuotations";
+import SalesTeamManagement from "./pages/salesperson/SalesTeamManagement";
 
 // Super Admin Imports
 import SuperAdminNavbar from "./components/SuperAdminNavbar";
@@ -42,16 +44,18 @@ import SystemSettings from "./pages/super-admin/SystemSettings";
 import SuperadminProfile from "./pages/super-admin/SuperadminProfile";
 import AuditLogs from "./pages/super-admin/AuditLogs";
 import ProductManagement from "./quotation/ProductManagement";
+import AdminProfile from "./pages/admin/AdminProfile";
 
 //subpages for super admin
 import AcceptedList from "./pages/super-admin/subPages/AcceptedList";
-import ActiveList from "./pages/super-admin/subPages/ActiveList";
+import TotalUsersList from "./pages/super-admin/subPages/TotalUsersList";
 import AdminList from "./pages/super-admin/subPages/AdminList";
 import ManagerList from "./pages/super-admin/subPages/ManagerList";
 import PendingList from "./pages/super-admin/subPages/PendingList";
 import RejectedList from "./pages/super-admin/subPages/RejectedList";
 import SalespersonList from "./pages/super-admin/subPages/SalespersonList";
 import WinList from "./pages/super-admin/subPages/WinList";
+import UserDetail from "./pages/super-admin/subPages/UserDetail";
 
 // Add Manager Imports
 import ManagerNavbar from "./components/ManagerNavbar";
@@ -59,7 +63,7 @@ import ManagerDashboard from "./pages/manager/ManagerDashboard";
 import TeamManagement from "./pages/manager/TeamManagement";
 import TeamQuotations from "./pages/manager/TeamQuotations";
 import PerformanceReports from "./pages/manager/PerformanceReports";
-import ManagerProfile from "./pages/manager/MyProfile"; // ADD THIS IMPORT
+import ManagerProfile from "./pages/manager/ManagerProfile";
 import ActiveMembers from "./pages/manager/subPages/ActiveMembers";
 import ActiveQuotations from "./pages/manager/subPages/ActiveQuotations";
 import TeamRevenue from "./pages/manager/subPages/TeamRevenue";
@@ -193,6 +197,29 @@ const CreateQuotationWrapper = () => {
 
   return <Navigate to="/" replace />;
 };
+
+const UserProfileWrapper = () => {
+  const role = localStorage.getItem("role");
+
+  if (role === "super-admin") {
+    return (
+      <SuperAdminLayout>
+        <UserDetail />
+      </SuperAdminLayout>
+    );
+  }
+
+  if (role === "admin") {
+    return (
+      <AdminLayout>
+        <UserDetail />
+      </AdminLayout>
+    );
+  }
+
+  return <Navigate to="/" replace />;
+};
+
 /////
 
 // Layout Components
@@ -277,15 +304,25 @@ function App() {
           }
         />
         <Route
-          path="/allsalesperson"
+          path="/admin-team-management"
           element={
             <ProtectedRoute requiredRole="admin">
               <AdminLayout>
-                <Allsalesperson />
+                <TeamManagementAdmin />
               </AdminLayout>
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/admin-profile"
+          element={
+            <ProtectedRoute requiredRole="admin">
+              <AdminLayout>
+                <AdminProfile />
+              </AdminLayout>
+            </ProtectedRoute>
+          }
+        />  
       
         {/* Admin Subpages */}
         <Route path="/admin/total-quotations" element={<ProtectedRoute requiredRole="admin"><TotalQuotations /></ProtectedRoute>} />
@@ -363,13 +400,21 @@ function App() {
         /> */}
         {/* Super Admin Subpages */}
         <Route path="/accepted-list" element={<ProtectedRoute requiredRole="super-admin"><AcceptedList /></ProtectedRoute>} />
-        <Route path="/active-list" element={<ProtectedRoute requiredRole="super-admin"><ActiveList /></ProtectedRoute>} />
+        <Route path="/total-users" element={<ProtectedRoute requiredRole="super-admin"><TotalUsersList /></ProtectedRoute>} />
         <Route path="/admin-list" element={<ProtectedRoute requiredRole="super-admin"><AdminList /></ProtectedRoute>} />
         <Route path="/manager-list" element={<ProtectedRoute requiredRole="super-admin"><ManagerList /></ProtectedRoute>} />
         <Route path="/pending-list" element={<ProtectedRoute requiredRole="super-admin"><PendingList /></ProtectedRoute>} />
         <Route path="/rejected-list" element={<ProtectedRoute requiredRole="super-admin"><RejectedList /></ProtectedRoute>} />
         <Route path="/salesperson-list" element={<ProtectedRoute requiredRole="super-admin"><SalespersonList /></ProtectedRoute>} />
         <Route path="/win-list" element={<ProtectedRoute requiredRole="super-admin"><WinList /></ProtectedRoute>} />
+        <Route 
+          path="/user-profile/:id" 
+          element={
+            <ProtectedRoute allowedRoles={["super-admin", "admin"]}>
+              <UserProfileWrapper />
+            </ProtectedRoute>
+          } 
+        />
         {/* SALES ROUTES */}
         <Route
           path="/sales-dashboard"
@@ -409,6 +454,16 @@ function App() {
             <ProtectedRoute requiredRole="salesperson">
               <SalesLayout>
                 <Profile />
+              </SalesLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/sales-team-management"
+          element={
+            <ProtectedRoute requiredRole="salesperson">
+              <SalesLayout>
+                <SalesTeamManagement />
               </SalesLayout>
             </ProtectedRoute>
           }

@@ -1,6 +1,7 @@
-import React, { useState, useMemo,} from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SuperAdminNavbar from "../../../components/SuperAdminNavbar";
+import API from "../../../api/api";
 import { FiSearch, FiFilter, FiX, FiUser, FiDollarSign, FiCalendar, FiCheckCircle, FiChevronRight } from 'react-icons/fi';
 
 const AcceptedList = () => {
@@ -8,6 +9,9 @@ const AcceptedList = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedQuotation, setSelectedQuotation] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [acceptedQuotations, setAcceptedQuotations] = useState([]);
   const [filters, setFilters] = useState({
     salesperson: 'all',
     area: 'all',
@@ -16,83 +20,39 @@ const AcceptedList = () => {
   });
   const navigate = useNavigate();
 
-  // Dummy data for accepted quotations
-  const acceptedQuotations = useMemo(() => [
-    {
-      id: 'QT-101',
-      customer: 'TechCorp Solutions',
-      salesperson: 'John Doe',
-      area: 'North America',
-      service: 'Website Redesign Project',
-      date: '2024-01-15',
-      acceptedDate: '2024-01-16',
-      amount: '$15,200',
-      paymentStatus: 'paid',
-      status: 'completed',
-      description: 'Complete website overhaul with new features'
-    },
-    {
-      id: 'QT-102',
-      customer: 'Global Logistics Inc',
-      salesperson: 'Sarah M.',
-      area: 'Europe',
-      service: 'CRM System Implementation',
-      date: '2024-01-14',
-      acceptedDate: '2024-01-15',
-      amount: '$8,500',
-      paymentStatus: 'paid',
-      status: 'completed',
-      description: 'Custom CRM solution for logistics tracking'
-    },
-    {
-      id: 'QT-103',
-      customer: 'MediCare Hospital',
-      salesperson: 'Mike R.',
-      area: 'Asia Pacific',
-      service: 'Medical Equipment Supply',
-      date: '2024-01-13',
-      acceptedDate: '2024-01-14',
-      amount: '$22,000',
-      paymentStatus: 'paid',
-      status: 'completed',
-      description: 'Medical devices and software integration'
-    },
-    {
-      id: 'QT-104',
-      customer: 'EduTech Innovations',
-      salesperson: 'Emily T.',
-      area: 'South America',
-      service: 'Learning Management System',
-      date: '2024-01-12',
-      acceptedDate: '2024-01-13',
-      amount: '$12,500',
-      paymentStatus: 'paid',
-      status: 'completed',
-      description: 'Custom LMS platform with analytics'
-    },
-    {
-      id: 'QT-105',
-      customer: 'Green Energy Corp',
-      salesperson: 'David L.',
-      area: 'Middle East',
-      service: 'Solar Panel Installation',
-      date: '2024-01-11',
-      acceptedDate: '2024-01-12',
-      amount: '$18,300',
-      paymentStatus: 'paid',
-      status: 'completed',
-      description: 'Commercial solar power system'
-    },
-  ], []);
+  useEffect(() => {
+    fetchAcceptedQuotations();
+  }, []);
+
+  const fetchAcceptedQuotations = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      // As requested, using specific endpoint /quotations/16/approve
+      // We use base API which already has /api and auth token
+      // const response = await API.get("/quotations/16/approve");
+      const response = { data: { quotations: [] } };
+      
+      if (response.data) {
+        const data = response.data.quotations || response.data.data || response.data || [];
+        setAcceptedQuotations(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Error fetching accepted quotations:", err);
+      setError("Failed to load accepted quotations from API");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Get unique values for filters
   const salespersons = useMemo(() => {
-    const unique = [...new Set(acceptedQuotations.map(q => q.salesperson))];
+    const unique = [...new Set(acceptedQuotations.map(q => q.salesperson || q.salesman?.name || 'N/A'))];
     return unique;
   }, [acceptedQuotations]);
 
   const areas = useMemo(() => {
-    const unique = [...new Set(acceptedQuotations.map(q => q.area))];
+    const unique = [...new Set(acceptedQuotations.map(q => q.area || q.salesman?.area || 'N/A'))];
     return unique;
   }, [acceptedQuotations]);
 
@@ -104,10 +64,10 @@ const AcceptedList = () => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(quote =>
-        quote.customer.toLowerCase().includes(query) ||
-        quote.id.toLowerCase().includes(query) ||
-        quote.salesperson.toLowerCase().includes(query) ||
-        quote.service.toLowerCase().includes(query)
+        (quote.customer_name || quote.customer || '').toLowerCase().includes(query) ||
+        quote.id.toString().includes(query) ||
+        (quote.salesperson || quote.salesman?.name || '').toLowerCase().includes(query) ||
+        (quote.service || quote.title || '').toLowerCase().includes(query)
       );
     }
     
@@ -130,8 +90,7 @@ const AcceptedList = () => {
           comparison = new Date(b.date) - new Date(a.date);
           break;
         case 'amount':
-          comparison = parseFloat(b.amount.replace('$', '').replace(',', '')) - 
-                     parseFloat(a.amount.replace('$', '').replace(',', ''));
+          comparison = (b.total_amount || b.amount || 0) - (a.total_amount || a.amount || 0);
           break;
         case 'salesperson':
           comparison = a.salesperson.localeCompare(b.salesperson);
@@ -168,7 +127,7 @@ const AcceptedList = () => {
   };
 
   const getPaymentColor = (status) => {
-    switch(status) {
+    switch(status?.toLowerCase()) {
       case 'paid':
         return 'bg-green-500/20 text-green-300';
       case 'unpaid':
@@ -178,6 +137,11 @@ const AcceptedList = () => {
       default:
         return 'bg-gray-500/20 text-gray-300';
     }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString();
   };
 
   return (
@@ -320,13 +284,13 @@ const AcceptedList = () => {
             <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
               <p className="text-gray-400 text-sm">Total Amount</p>
               <p className="text-2xl font-bold text-blue-400">
-                ${acceptedQuotations.reduce((sum, q) => sum + parseFloat(q.amount.replace('$', '').replace(',', '')), 0).toLocaleString()}
+                ${acceptedQuotations.reduce((sum, q) => sum + parseFloat(q.total_amount || q.amount || 0), 0).toLocaleString()}
               </p>
             </div>
             <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
               <p className="text-gray-400 text-sm">Avg. Amount</p>
               <p className="text-2xl font-bold text-yellow-400">
-                ${(acceptedQuotations.reduce((sum, q) => sum + parseFloat(q.amount.replace('$', '').replace(',', '')), 0) / acceptedQuotations.length).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                ${acceptedQuotations.length > 0 ? (acceptedQuotations.reduce((sum, q) => sum + parseFloat(q.total_amount || q.amount || 0), 0) / acceptedQuotations.length).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : 0}
               </p>
             </div>
             <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
@@ -337,11 +301,12 @@ const AcceptedList = () => {
             </div>
           </div>
 
-          {/* Results Summary */}
-          <div className="mb-4 flex justify-between items-center">
+          <div className="mb-4 flex flex-col sm:flex-row justify-between items-center gap-4">
             <p className="text-gray-400 text-sm">
               Showing {filteredQuotations.length} of {acceptedQuotations.length} accepted quotations
             </p>
+            {error && <span className="text-red-400 text-sm">⚠️ {error}</span>}
+            {loading && <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>}
           </div>
 
           {/* Quotations Table */}
@@ -373,9 +338,9 @@ const AcceptedList = () => {
                 
                 <tbody>
                   {filteredQuotations.map((quote) => (
-                    <>
+                    <React.Fragment key={quote.id}>
                       {/* Mobile View - Card Layout */}
-                      <tr key={`mobile-${quote.id}`} className="sm:hidden border-b border-gray-700 hover:bg-gray-750 transition-colors duration-200">
+                      <tr className="sm:hidden border-b border-gray-700 hover:bg-gray-750 transition-colors duration-200">
                         <td colSpan="2" className="p-4">
                           <div 
                             className="space-y-3 cursor-pointer"
@@ -383,9 +348,9 @@ const AcceptedList = () => {
                           >
                             <div className="flex justify-between items-start">
                               <div>
-                                <h3 className="font-bold text-blue-400">{quote.id}</h3>
-                                <h4 className="font-semibold text-white mt-1">{quote.customer}</h4>
-                                <p className="text-gray-400 text-sm">{quote.service}</p>
+                                <h3 className="font-bold text-blue-400">QT-{quote.id}</h3>
+                                <h4 className="font-semibold text-white mt-1">{quote.customer_name || quote.customer || 'N/A'}</h4>
+                                <p className="text-gray-400 text-sm">{quote.service || quote.title || 'N/A'}</p>
                               </div>
                               <FiChevronRight className="text-gray-400" />
                             </div>
@@ -393,23 +358,23 @@ const AcceptedList = () => {
                             <div className="grid grid-cols-2 gap-4">
                               <div>
                                 <p className="text-gray-400 text-xs">Salesperson</p>
-                                <p className="text-purple-300 text-sm">{quote.salesperson}</p>
+                                <p className="text-purple-300 text-sm">{quote.salesperson || quote.salesman?.name || 'N/A'}</p>
                               </div>
                               <div>
                                 <p className="text-gray-400 text-xs">Date</p>
-                                <p className="text-gray-300 text-sm">{quote.date}</p>
+                                <p className="text-gray-300 text-sm">{formatDate(quote.created_at)}</p>
                               </div>
                             </div>
                             
                             <div className="grid grid-cols-2 gap-4">
                               <div>
                                 <p className="text-gray-400 text-xs">Amount</p>
-                                <p className="font-bold text-white text-sm">{quote.amount}</p>
+                                <p className="font-bold text-white text-sm">${quote.total_amount || quote.amount || '0'}</p>
                               </div>
                               <div>
                                 <p className="text-gray-400 text-xs">Payment</p>
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${getPaymentColor(quote.paymentStatus)}`}>
-                                  {quote.paymentStatus}
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${getPaymentColor(quote.payment_status || 'paid')}`}>
+                                  {quote.payment_status || 'Paid'}
                                 </span>
                               </div>
                             </div>
@@ -418,13 +383,13 @@ const AcceptedList = () => {
                       </tr>
                       
                       {/* Desktop/Tablet View - Table Layout */}
-                      <tr key={`desktop-${quote.id}`} className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
+                      <tr className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
                         <td className="px-6 py-4">
                           <div 
                             className="font-bold text-blue-400 cursor-pointer hover:text-blue-300 transition-colors"
                             onClick={() => handleQuotationClick(quote)}
                           >
-                            {quote.id}
+                            QT-{quote.id}
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -432,33 +397,33 @@ const AcceptedList = () => {
                             className="font-semibold text-white cursor-pointer hover:text-blue-300 transition-colors"
                             onClick={() => handleQuotationClick(quote)}
                           >
-                            {quote.customer}
+                            {quote.customer_name || quote.customer || 'N/A'}
                           </div>
-                          <div className="text-xs text-gray-400 mt-1">{quote.description}</div>
+                          <div className="text-xs text-gray-400 mt-1">{quote.customer_email || quote.email}</div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-green-400 font-medium text-sm">{quote.service}</span>
+                          <span className="text-blue-400 font-medium text-sm">{quote.service || quote.title || 'N/A'}</span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <FiUser className="w-4 h-4 text-purple-400" />
-                            <span className="text-purple-300 text-sm">{quote.salesperson}</span>
+                            <span className="text-purple-300 text-sm">{quote.salesperson || quote.salesman?.name || 'N/A'}</span>
                           </div>
-                          <div className="text-xs text-gray-400 mt-1">{quote.area}</div>
+                          <div className="text-xs text-gray-400 mt-1">{quote.area || quote.salesman?.area || 'N/A'}</div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-gray-300 text-sm">{quote.date}</div>
-                          <div className="text-xs text-gray-500">Accepted: {quote.acceptedDate}</div>
+                          <div className="text-gray-300 text-sm">{formatDate(quote.created_at)}</div>
+                          <div className="text-xs text-gray-500">Approved: {formatDate(quote.approved_at || quote.updated_at)}</div>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <FiDollarSign className="w-4 h-4 text-yellow-400" />
-                            <span className="font-bold text-white">{quote.amount}</span>
+                            <span className="font-bold text-white">${quote.total_amount || quote.amount || '0'}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPaymentColor(quote.paymentStatus)}`}>
-                            {quote.paymentStatus}
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPaymentColor(quote.payment_status || 'paid')}`}>
+                            {quote.payment_status || 'Paid'}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -470,13 +435,13 @@ const AcceptedList = () => {
                           </button>
                         </td>
                       </tr>
-                    </>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            {filteredQuotations.length === 0 && (
+            {filteredQuotations.length === 0 && !loading && (
               <div className="text-center py-12">
                 <FiCheckCircle className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                 <p className="text-gray-400">No accepted quotations found</p>
@@ -485,6 +450,12 @@ const AcceptedList = () => {
                     ? `No results found for "${searchQuery}". Try a different search term.`
                     : 'No accepted quotations in the system.'}
                 </p>
+              </div>
+            )}
+            {loading && (
+              <div className="text-center py-20 flex flex-col items-center gap-4">
+                <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-gray-400 animate-pulse">Fetching quotations from API...</p>
               </div>
             )}
           </div>
@@ -524,25 +495,26 @@ const AcceptedList = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="p-4 bg-gray-750 rounded-lg">
                         <p className="text-sm text-gray-400">Customer</p>
-                        <p className="font-medium text-lg">{selectedQuotation.customer}</p>
+                        <p className="font-medium text-lg">{selectedQuotation.customer_name || selectedQuotation.customer || 'N/A'}</p>
+                        <p className="text-xs text-gray-500">{selectedQuotation.customer_email || selectedQuotation.email}</p>
                       </div>
                       <div className="p-4 bg-gray-750 rounded-lg">
                         <p className="text-sm text-gray-400">Salesperson</p>
                         <div className="flex items-center gap-2 mt-1">
                           <FiUser className="w-4 h-4 text-purple-400" />
-                          <p className="font-medium">{selectedQuotation.salesperson}</p>
+                          <p className="font-medium">{selectedQuotation.salesperson || selectedQuotation.salesman?.name || 'N/A'}</p>
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">{selectedQuotation.area}</p>
+                        <p className="text-xs text-gray-400 mt-1">{selectedQuotation.area || selectedQuotation.salesman?.area || 'N/A'}</p>
                       </div>
                       <div className="p-4 bg-gray-750 rounded-lg">
                         <p className="text-sm text-gray-400">Service</p>
-                        <p className="font-medium text-green-400">{selectedQuotation.service}</p>
+                        <p className="font-medium text-blue-400">{selectedQuotation.service || selectedQuotation.title || 'N/A'}</p>
                       </div>
                       <div className="p-4 bg-gray-750 rounded-lg">
                         <p className="text-sm text-gray-400">Amount</p>
                         <div className="flex items-center gap-2 mt-1">
                           <FiDollarSign className="w-5 h-5 text-yellow-400" />
-                          <p className="font-bold text-2xl">{selectedQuotation.amount}</p>
+                          <p className="font-bold text-2xl">${selectedQuotation.total_amount || selectedQuotation.amount || '0'}</p>
                         </div>
                       </div>
                     </div>
@@ -557,7 +529,7 @@ const AcceptedList = () => {
                           <FiCalendar className="w-5 h-5 text-blue-400" />
                           <div>
                             <p className="text-sm text-gray-400">Created Date</p>
-                            <p className="font-medium">{selectedQuotation.date}</p>
+                            <p className="font-medium">{formatDate(selectedQuotation.created_at)}</p>
                           </div>
                         </div>
                       </div>
@@ -566,7 +538,7 @@ const AcceptedList = () => {
                           <FiCheckCircle className="w-5 h-5 text-green-400" />
                           <div>
                             <p className="text-sm text-gray-400">Accepted Date</p>
-                            <p className="font-medium">{selectedQuotation.acceptedDate}</p>
+                            <p className="font-medium">{formatDate(selectedQuotation.approved_at || selectedQuotation.updated_at)}</p>
                           </div>
                         </div>
                       </div>

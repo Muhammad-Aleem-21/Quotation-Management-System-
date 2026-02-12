@@ -1,13 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiX, FiUser, FiMail, FiPhone, FiMapPin, FiLock, FiBriefcase } from 'react-icons/fi';
-import API from '../../api/api';
+import { FiX, FiUser, FiMail, FiPhone, FiMapPin, FiLock, FiBriefcase, FiAlertCircle } from 'react-icons/fi';
+import API, { createAdmin } from '../../api/api';
 
 const UserManagement = () => {
   const navigate = useNavigate();
   const [showUserModal, setShowUserModal] = useState(false);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
   
   // Form state
   const [newUser, setNewUser] = useState({
@@ -21,89 +25,96 @@ const UserManagement = () => {
     confirmPassword: ''
   });
 
-  const users = [
-    {
-      id: 1,
-      name: "John Doe",
-      email: "john.doe@company.com",
-      role: "Admin",
-      status: "Active",
-      joinDate: "2023-01-15",
-      lastLogin: "2024-01-20 14:30",
-      contact: "+1 (555) 123-4567",
-      area: "North America",
-      profileColor: "bg-blue-500",
-      initials: "JD"
-    },
-    {
-      id: 2,
-      name: "Sarah Wilson",
-      email: "sarah.wilson@company.com",
-      role: "Admin",
-      status: "Active",
-      joinDate: "2023-03-10",
-      lastLogin: "2024-01-20 10:15",
-      contact: "+1 (555) 234-5678",
-      area: "Europe",
-      profileColor: "bg-purple-500",
-      initials: "SW"
-    },
-    {
-      id: 3,
-      name: "Mike Johnson",
-      email: "mike.johnson@company.com",
-      role: "Salesperson",
-      status: "Inactive",
-      joinDate: "2023-06-22",
-      lastLogin: "2024-01-18 09:45",
-      contact: "+1 (555) 345-6789",
-      area: "Asia Pacific",
-      profileColor: "bg-green-500",
-      initials: "MJ"
-    },
-    {
-      id: 4,
-      name: "Emily Davis",
-      email: "emily.davis@company.com",
-      role: "Manager",
-      status: "Active",
-      joinDate: "2023-02-28",
-      lastLogin: "2024-01-20 16:20",
-      contact: "+1 (555) 456-7890",
-      area: "South America",
-      profileColor: "bg-yellow-500",
-      initials: "ED"
-    },
-    {
-      id: 5,
-      name: "Robert Chen",
-      email: "robert.chen@company.com",
-      role: "Salesperson",
-      status: "Active",
-      joinDate: "2023-08-10",
-      lastLogin: "2024-01-19 11:30",
-      contact: "+1 (555) 567-8901",
-      area: "East Asia",
-      profileColor: "bg-indigo-500",
-      initials: "RC"
-    },
-    {
-      id: 6,
-      name: "Lisa Park",
-      email: "lisa.park@company.com",
-      role: "Manager",
-      status: "Active",
-      joinDate: "2023-04-15",
-      lastLogin: "2024-01-20 08:45",
-      contact: "+1 (555) 678-9012",
-      area: "West Coast",
-      profileColor: "bg-teal-500",
-      initials: "LP"
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await API.get("/users");
+      
+      const getRoleDisplay = (role) => {
+        const roles = {
+          'super-admin': 'Super Admin',
+          'admin': 'Admin',
+          'manager': 'Manager',
+          'salesperson': 'Salesperson'
+        };
+        return roles[role.toLowerCase()] || role;
+      };
+
+      const getUserColor = (role) => {
+        const colors = {
+          'super-admin': 'bg-red-500',
+          'admin': 'bg-purple-500',
+          'manager': 'bg-yellow-500',
+          'salesperson': 'bg-blue-500'
+        };
+        return colors[role.toLowerCase()] || 'bg-gray-500';
+      };
+
+      // Transform data with robust fallbacks
+      const teamData = response.data.team || {};
+      const allUsers = response.data.users || teamData.admins || response.data || [];
+      
+      const userList = Array.isArray(allUsers) ? allUsers : 
+                      (typeof allUsers === 'object' ? Object.values(allUsers).flat().filter(u => typeof u === 'object' && u !== null) : []);
+
+      const transformedUsers = userList.map(user => {
+        const role = user.role || (user.roles && user.roles[0]?.name) || (user.roles && user.roles[0]) || '';
+        const profile = user.profile || {};
+        
+        // Reports To logic
+        let reportsTo = 'System';
+        if (role.toLowerCase() === 'salesperson') {
+          const manager = user.manager || user.creator;
+          reportsTo = manager ? (manager.name || manager.fullName) : (user.manager_id ? `Manager #${user.manager_id}` : 'Manager');
+        } else if (role.toLowerCase() === 'manager') {
+          const admin = user.admin || user.creator;
+          reportsTo = admin ? (admin.name || admin.fullName) : (user.admin_id ? `Admin #${user.admin_id}` : 'Administrator');
+        } else if (role.toLowerCase() === 'admin') {
+          reportsTo = 'Super Admin';
+        }
+
+        return {
+          ...user,
+          fullName: user.name || user.fullName || 'N/A',
+          name: user.name || user.fullName || 'N/A', // For backward compatibility in this component
+          role: getRoleDisplay(role),
+          roleRaw: role.toLowerCase(),
+          creatorName: reportsTo,
+          address: user.address || profile.address || 'Not Provided',
+          area: user.region || user.area || profile.region || profile.area || 'N/A',
+          contact: user.phone || user.contact || profile.phone || profile.contact || 'N/A',
+          bio: user.bio || profile.bio || '',
+          initials: (user.name || user.fullName || 'N').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
+          profileColor: getUserColor(role),
+          joinDate: user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A',
+          lastLogin: user.last_login_at ? new Date(user.last_login_at).toLocaleString() : 'Never',
+          status: user.status === 'inactive' ? 'Inactive' : 'Active',
+          stats: {
+            created: user.quotations_count || 0,
+            accepted: user.accepted_quotations_count || 0,
+            successRate: user.success_rate || "0%"
+          }
+        };
+      });
+
+      setUsers(transformedUsers);
+    } catch (err) {
+      console.error("Error fetching users:", err);
+      setError("Failed to synchronize user data with the server.");
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   // Filter out Super Admin (showing only regular users in the list)
-  const filteredUsers = users.filter(user => user.role !== "Super Admin");
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => user.roleRaw !== "super-admin");
+  }, [users]);
 
   const getStatusColor = (status) => {
     return status === "Active" ? "bg-green-500/20 text-green-300" : "bg-red-500/20 text-red-300";
@@ -166,38 +177,32 @@ const UserManagement = () => {
     }
 
     try {
-      const response = await API.post('/users/create-admin', {
+      setSaving(true);
+      const payload = {
         name: newUser.fullName,
         email: newUser.email,
         password: newUser.password,
         password_confirmation: newUser.confirmPassword,
-        contact: newUser.contact,
+        phone: newUser.contact,
         address: newUser.address,
         area: newUser.area
-      });
+      };
+
+      const response = await createAdmin(payload);
 
       if (response.data.success) {
-        alert(response.data.message || 'Admin created successfully!');
+        alert(response.data.message || "Admin created successfully");
         setShowAddUserModal(false);
+        fetchUsers();
         // Reset form
-        setNewUser({
-          role: 'Admin',
-          fullName: '',
-          email: '',
-          contact: '',
-          address: '',
-          area: '',
-          password: '',
-          confirmPassword: ''
-        });
-        // Optional: Refresh users list if needed
-      } else {
-        alert(response.data.message || 'Failed to create admin');
+        handleFormCancel();
       }
-    } catch (error) {
-      console.error('Error creating admin:', error);
-      const errorMessage = error.response?.data?.message || 'An error occurred while creating admin';
-      alert(errorMessage);
+    } catch (err) {
+      console.error("Error creating admin:", err);
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || "Failed to create admin";
+      alert(errorMsg);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -243,81 +248,105 @@ const UserManagement = () => {
       </div>
 
       {/* Stats Cards - Clickable */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        {/* Total Users Card */}
-        <div 
-          onClick={() => handleCardClick('total-users')}
-          className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700 cursor-pointer hover:scale-[1.02] transition-all duration-200"
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-gray-400 text-sm sm:text-base">Total Users</p>
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{filteredUsers.length}</h2>
-              <p className="text-gray-500 text-xs sm:text-sm mt-1">Click to view all users</p>
+      {!loading && !error && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          {/* Total Users Card */}
+          <div 
+            onClick={() => handleCardClick('total-users')}
+            className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700 cursor-pointer hover:scale-[1.02] transition-all duration-200"
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-gray-400 text-sm sm:text-base">Total Users</p>
+                <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{filteredUsers.length}</h2>
+                <p className="text-gray-500 text-xs sm:text-sm mt-1">Platform wide</p>
+              </div>
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-700 rounded-xl flex items-center justify-center text-white text-lg sm:text-xl text-blue-400">
+                 <FiUser />
+              </div>
             </div>
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gray-700 rounded-xl flex items-center justify-center text-white text-lg sm:text-xl">
-              👥
+          </div>
+          
+          {/* Active Users Card */}
+          <div 
+            onClick={() => handleCardClick('total-users')}
+            className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl p-4 sm:p-6 border border-green-500/30 cursor-pointer hover:scale-[1.02] transition-all duration-200"
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-gray-400 text-sm sm:text-base">Active Users</p>
+                <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">
+                  {filteredUsers.filter(u => u.status === "Active").length}
+                </h2>
+                <p className="text-green-400 text-xs sm:text-sm mt-1">Currently active</p>
+              </div>
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-600 rounded-xl flex items-center justify-center text-white text-lg sm:text-xl">
+                <FiBriefcase />
+              </div>
+            </div>
+          </div>
+          
+          {/* Admins Card */}
+          <div 
+            onClick={() => navigate('/admin-list')}
+            className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl p-4 sm:p-6 border border-purple-500/30 cursor-pointer hover:scale-[1.02] transition-all duration-200"
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-gray-400 text-sm sm:text-base">Admins</p>
+                <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">
+                  {filteredUsers.filter(u => u.role === "Admin").length}
+                </h2>
+                <p className="text-purple-400 text-xs sm:text-sm mt-1">System admins</p>
+              </div>
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-600 rounded-xl flex items-center justify-center text-white text-lg sm:text-xl">
+                ⚙️
+              </div>
+            </div>
+          </div>
+          
+          {/* Sales Team Card */}
+          <div 
+            onClick={() => navigate('/salesperson-list')}
+            className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl p-4 sm:p-6 border border-blue-500/30 cursor-pointer hover:scale-[1.02] transition-all duration-200"
+          >
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-gray-400 text-sm sm:text-base">Sales Team</p>
+                <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">
+                  {filteredUsers.filter(u => u.role === "Salesperson").length}
+                </h2>
+                <p className="text-blue-400 text-xs sm:text-sm mt-1">Field agents</p>
+              </div>
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white text-lg sm:text-xl">
+                <FiBriefcase />
+              </div>
             </div>
           </div>
         </div>
-        
-        {/* Active Users Card */}
-        <div 
-          onClick={() => handleCardClick('active-list')}
-          className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 rounded-xl p-4 sm:p-6 border border-green-500/30 cursor-pointer hover:scale-[1.02] transition-all duration-200"
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-gray-400 text-sm sm:text-base">Active Users</p>
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">
-                {filteredUsers.filter(u => u.status === "Active").length}
-              </h2>
-              <p className="text-green-400 text-xs sm:text-sm mt-1">Click to view active users</p>
-            </div>
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-600 rounded-xl flex items-center justify-center text-white text-lg sm:text-xl">
-              ✅
-            </div>
-          </div>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <div className="bg-gray-800 rounded-xl border border-gray-700 p-20 text-center mb-8">
+          <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400">Syncing user database...</p>
         </div>
-        
-        {/* Admins Card */}
-        <div 
-          onClick={() => handleCardClick('admin-list')}
-          className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl p-4 sm:p-6 border border-purple-500/30 cursor-pointer hover:scale-[1.02] transition-all duration-200"
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-gray-400 text-sm sm:text-base">Admins</p>
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">
-                {filteredUsers.filter(u => u.role === "Admin").length}
-              </h2>
-              <p className="text-purple-400 text-xs sm:text-sm mt-1">Click to view all admins</p>
-            </div>
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-600 rounded-xl flex items-center justify-center text-white text-lg sm:text-xl">
-              ⚙️
-            </div>
-          </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-8 text-center mb-8">
+           <FiAlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+           <p className="text-red-400 mb-6 font-medium">{error}</p>
+           <button 
+             onClick={fetchUsers}
+             className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+           >
+             Retry Sync
+           </button>
         </div>
-        
-        {/* Sales Team Card */}
-        <div 
-          onClick={() => handleCardClick('salesperson-list')}
-          className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 rounded-xl p-4 sm:p-6 border border-blue-500/30 cursor-pointer hover:scale-[1.02] transition-all duration-200"
-        >
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-gray-400 text-sm sm:text-base">Sales Team</p>
-              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">
-                {filteredUsers.filter(u => u.role === "Salesperson").length}
-              </h2>
-              <p className="text-blue-400 text-xs sm:text-sm mt-1">Click to view salespersons</p>
-            </div>
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white text-lg sm:text-xl">
-              📊
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Users Table Section */}
       <div id="users-table">
@@ -327,66 +356,75 @@ const UserManagement = () => {
         </div>
 
         {/* Users Table */}
-        <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
-              <thead className="bg-gray-700">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-300">User</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-300">Role</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-300">Status</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-300">Join Date</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-300">Last Login</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-300">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-750 transition-colors duration-200">
-                    <td className="px-4 py-3">
-                      <div 
-                        className="flex items-center gap-3 cursor-pointer group"
-                        onClick={() => handleUserClick(user)}
-                      >
-                        <div className={`${user.profileColor} w-10 h-10 rounded-full flex items-center justify-center text-white font-bold`}>
-                          {user.initials}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-white group-hover:text-blue-300 transition-colors">
-                            {user.name}
-                          </div>
-                          <div className="text-sm text-gray-400">{user.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRoleColor(user.role)}`}>
-                        {user.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(user.status)}`}>
-                        {user.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-300">{user.joinDate}</td>
-                    <td className="px-4 py-3 text-gray-300">{user.lastLogin}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex space-x-2">
-                        <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200">
-                          Edit
-                        </button>
-                        <button className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200">
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+        {!loading && !error && (
+          <div className="bg-gray-800 rounded-xl border border-gray-700 shadow-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[800px]">
+                <thead className="bg-gray-700">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300">User</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300">Role</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300">Area</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300">Reports To</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300">Status</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300">Joined</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                  {filteredUsers.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-750 transition-colors duration-200">
+                      <td className="px-4 py-3">
+                        <div 
+                          className="flex items-center gap-3 cursor-pointer group"
+                          onClick={() => handleUserClick(user)}
+                        >
+                          <div className={`${user.profileColor} w-10 h-10 rounded-full flex items-center justify-center text-white font-bold`}>
+                            {user.initials}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-white group-hover:text-blue-300 transition-colors">
+                              {user.name}
+                            </div>
+                            <div className="text-sm text-gray-400 truncate max-w-[200px]">{user.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${getRoleColor(user.role)}`}>
+                          {user.role}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-300 text-sm truncate max-w-[150px]">{user.area}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col">
+                            <span className="text-gray-300 text-sm font-medium">{user.creatorName}</span>
+                            <span className="text-[10px] text-gray-500 uppercase tracking-tighter">Reports To</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${getStatusColor(user.status)}`}>
+                          {user.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-400 text-xs">{user.joinDate}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex space-x-2">
+                          <button 
+                            onClick={() => navigate(`/user-profile/${user.id}`)}
+                            className="bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 border border-blue-600/20"
+                          >
+                            Profile
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* User Details Modal */}
@@ -699,9 +737,11 @@ const UserManagement = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors"
+                  disabled={saving}
+                  className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
-                  Create User Account
+                  {saving && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                  {saving ? "Creating..." : "Create User Account"}
                 </button>
               </div>
             </form>

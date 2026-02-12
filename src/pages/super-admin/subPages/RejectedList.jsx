@@ -1,9 +1,13 @@
-import React, { useState, useMemo,} from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SuperAdminNavbar from "../../../components/SuperAdminNavbar";
+import API from "../../../api/api";
 import { FiSearch, FiFilter, FiX, FiUser, FiDollarSign, FiCalendar, FiXCircle, FiChevronRight, FiRefreshCw } from 'react-icons/fi';
 
 const RejectedList = () => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [rejectedQuotations, setRejectedQuotations] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedQuotation, setSelectedQuotation] = useState(null);
@@ -17,98 +21,37 @@ const RejectedList = () => {
   });
   const navigate = useNavigate();
 
-  // Dummy data for rejected quotations
-  const rejectedQuotations = useMemo(() => [
-    {
-      id: 'QT-R101',
-      customer: 'Auto Parts Inc',
-      salesperson: 'John Doe',
-      area: 'North America',
-      service: 'Inventory Management System',
-      date: '2024-01-05',
-      rejectDate: '2024-01-08',
-      rejectedBy: 'Emma Rodriguez',
-      amount: '$45,000',
-      rejectReason: 'budget_constraints',
-      status: 'rejected',
-      description: 'Enterprise inventory management system with AI predictions',
-      notes: 'Customer budget was only $30,000, too far from our quote.',
-      canBeRevised: true
-    },
-    {
-      id: 'QT-R102',
-      customer: 'Travel Agency Ltd',
-      salesperson: 'Sarah M.',
-      area: 'Europe',
-      service: 'Booking Platform Development',
-      date: '2024-01-04',
-      rejectDate: '2024-01-07',
-      rejectedBy: 'Sophia Williams',
-      amount: '$28,000',
-      rejectReason: 'competitor_lower_price',
-      status: 'rejected',
-      description: 'Custom travel booking platform with payment integration',
-      notes: 'Competitor offered similar service for $22,000.',
-      canBeRevised: true
-    },
-    {
-      id: 'QT-R103',
-      customer: 'Pharmaceutical Corp',
-      salesperson: 'Mike R.',
-      area: 'Asia Pacific',
-      service: 'Compliance Software',
-      date: '2024-01-03',
-      rejectDate: '2024-01-06',
-      rejectedBy: 'James Wilson',
-      amount: '$75,000',
-      rejectReason: 'scope_mismatch',
-      status: 'rejected',
-      description: 'Regulatory compliance software for pharmaceutical industry',
-      notes: 'Customer requirements were beyond our current capabilities.',
-      canBeRevised: false
-    },
-    {
-      id: 'QT-R104',
-      customer: 'Fashion Retailer',
-      salesperson: 'Emily T.',
-      area: 'South America',
-      service: 'E-commerce Website',
-      date: '2024-01-02',
-      rejectDate: '2024-01-05',
-      rejectedBy: 'Emma Rodriguez',
-      amount: '$18,500',
-      rejectReason: 'timeline_issues',
-      status: 'rejected',
-      description: 'Full e-commerce platform with custom design',
-      notes: 'Customer needed delivery in 2 weeks, we quoted 4 weeks.',
-      canBeRevised: true
-    },
-    {
-      id: 'QT-R105',
-      customer: 'Construction Group',
-      salesperson: 'David L.',
-      area: 'Middle East',
-      service: 'Project Management Software',
-      date: '2024-01-01',
-      rejectDate: '2024-01-04',
-      rejectedBy: 'Michael Brown',
-      amount: '$52,000',
-      rejectReason: 'budget_constraints',
-      status: 'rejected',
-      description: 'Construction project management with BIM integration',
-      notes: 'Project put on hold by customer due to funding issues.',
-      canBeRevised: false
-    },
-  ], []);
+  useEffect(() => {
+    fetchRejectedQuotations();
+  }, []);
+
+  const fetchRejectedQuotations = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      // const response = await API.get("/quotations/22/reject");
+      const response = { data: { quotations: [] } };
+      
+      if (response.data) {
+        const data = response.data.quotations || response.data.data || response.data || [];
+        setRejectedQuotations(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      console.error("Error fetching rejected quotations:", err);
+      setError("Failed to load rejected quotations from API");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Get unique values for filters
   const salespersons = useMemo(() => {
-    const unique = [...new Set(rejectedQuotations.map(q => q.salesperson))];
+    const unique = [...new Set(rejectedQuotations.map(q => q.salesperson || q.salesman?.name || 'N/A'))];
     return unique;
   }, [rejectedQuotations]);
 
   const areas = useMemo(() => {
-    const unique = [...new Set(rejectedQuotations.map(q => q.area))];
+    const unique = [...new Set(rejectedQuotations.map(q => q.area || q.salesman?.area || 'N/A'))];
     return unique;
   }, [rejectedQuotations]);
 
@@ -130,11 +73,10 @@ const RejectedList = () => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(quote =>
-        quote.customer.toLowerCase().includes(query) ||
-        quote.id.toLowerCase().includes(query) ||
-        quote.salesperson.toLowerCase().includes(query) ||
-        quote.service.toLowerCase().includes(query) ||
-        quote.rejectedBy.toLowerCase().includes(query)
+        (quote.customer_name || quote.customer || '').toLowerCase().includes(query) ||
+        quote.id.toString().includes(query) ||
+        (quote.salesperson || quote.salesman?.name || '').toLowerCase().includes(query) ||
+        (quote.service || quote.title || '').toLowerCase().includes(query)
       );
     }
     
@@ -165,8 +107,7 @@ const RejectedList = () => {
           comparison = new Date(b.date) - new Date(a.date);
           break;
         case 'amount':
-          comparison = parseFloat(b.amount.replace('$', '').replace(',', '')) - 
-                     parseFloat(a.amount.replace('$', '').replace(',', ''));
+          comparison = (b.total_amount || b.amount || 0) - (a.total_amount || a.amount || 0);
           break;
         case 'salesperson':
           comparison = a.salesperson.localeCompare(b.salesperson);
@@ -190,7 +131,7 @@ const RejectedList = () => {
   };
 
   const getStatusColor = (status) => {
-    switch(status) {
+    switch(status?.toLowerCase()) {
       case 'rejected':
         return 'bg-red-500/20 text-red-300 border-red-500/30';
       case 'revised':
@@ -200,6 +141,11 @@ const RejectedList = () => {
       default:
         return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
     }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString();
   };
 
   const getReasonColor = (reason) => {
@@ -220,6 +166,7 @@ const RejectedList = () => {
   };
 
   const getReasonLabel = (reason) => {
+    if (!reason) return 'N/A';
     const reasonObj = rejectReasons.find(r => r.value === reason);
     return reasonObj ? reasonObj.label : reason.replace('_', ' ');
   };
@@ -398,16 +345,17 @@ const RejectedList = () => {
             <div className="bg-gradient-to-br from-blue-900/30 to-cyan-900/30 p-4 rounded-xl border border-blue-700/30">
               <p className="text-gray-400 text-sm">Total Lost Revenue</p>
               <p className="text-2xl font-bold text-blue-400">
-                ${rejectedQuotations.reduce((sum, q) => sum + parseFloat(q.amount.replace('$', '').replace(',', '')), 0).toLocaleString()}
+                ${rejectedQuotations.reduce((sum, q) => sum + parseFloat(q.total_amount || q.amount || 0), 0).toLocaleString()}
               </p>
             </div>
           </div>
 
-          {/* Results Summary */}
-          <div className="mb-4 flex justify-between items-center">
+          <div className="mb-4 flex flex-col sm:flex-row justify-between items-center gap-4">
             <p className="text-gray-400 text-sm">
               Showing {filteredQuotations.length} of {rejectedQuotations.length} rejected quotations
             </p>
+            {error && <span className="text-red-400 text-sm">⚠️ {error}</span>}
+            {loading && <div className="w-6 h-6 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>}
             <div className="text-sm text-gray-400">
               {rejectedQuotations.filter(q => q.canBeRevised).length} can be revised
             </div>
@@ -442,9 +390,9 @@ const RejectedList = () => {
                 
                 <tbody>
                   {filteredQuotations.map((quote) => (
-                    <>
+                    <React.Fragment key={quote.id}>
                       {/* Mobile View - Card Layout */}
-                      <tr key={`mobile-${quote.id}`} className="sm:hidden border-b border-gray-700 hover:bg-gray-750 transition-colors duration-200">
+                      <tr className="sm:hidden border-b border-gray-700 hover:bg-gray-750 transition-colors duration-200">
                         <td colSpan="2" className="p-4">
                           <div 
                             className="space-y-3 cursor-pointer"
@@ -452,9 +400,9 @@ const RejectedList = () => {
                           >
                             <div className="flex justify-between items-start">
                               <div>
-                                <h3 className="font-bold text-red-400">{quote.id}</h3>
-                                <h4 className="font-semibold text-white mt-1">{quote.customer}</h4>
-                                <p className="text-gray-400 text-sm">{quote.service}</p>
+                                <h3 className="font-bold text-red-400">QT-{quote.id}</h3>
+                                <h4 className="font-semibold text-white mt-1">{quote.customer_name || quote.customer || 'N/A'}</h4>
+                                <p className="text-gray-400 text-sm">{quote.service || quote.title || 'N/A'}</p>
                               </div>
                               <FiChevronRight className="text-gray-400" />
                             </div>
@@ -462,61 +410,38 @@ const RejectedList = () => {
                             <div className="grid grid-cols-2 gap-4">
                               <div>
                                 <p className="text-gray-400 text-xs">Salesperson</p>
-                                <p className="text-purple-300 text-sm">{quote.salesperson}</p>
+                                <p className="text-purple-300 text-sm">{quote.salesperson || quote.salesman?.name || 'N/A'}</p>
                               </div>
                               <div>
                                 <p className="text-gray-400 text-xs">Reject Date</p>
-                                <p className="text-gray-300 text-sm">{quote.rejectDate}</p>
+                                <p className="text-gray-300 text-sm">{formatDate(quote.rejected_at || quote.updated_at)}</p>
                               </div>
                             </div>
                             
                             <div className="grid grid-cols-2 gap-4">
                               <div>
                                 <p className="text-gray-400 text-xs">Amount</p>
-                                <p className="font-bold text-white text-sm">{quote.amount}</p>
+                                <p className="font-bold text-white text-sm">${quote.total_amount || quote.amount || '0'}</p>
                               </div>
                               <div>
                                 <p className="text-gray-400 text-xs">Reason</p>
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${getReasonColor(quote.rejectReason)}`}>
-                                  {getReasonLabel(quote.rejectReason)}
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${getReasonColor(quote.rejectReason || 'budget_constraints')}`}>
+                                  {getReasonLabel(quote.rejectReason || quote.rejection_reason || 'Other')}
                                 </span>
                               </div>
-                            </div>
-                            
-                            <div className="pt-2 flex gap-2">
-                              {quote.canBeRevised && (
-                                <button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRevise(quote.id);
-                                  }}
-                                  className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white py-2 rounded text-sm font-medium transition-colors"
-                                >
-                                  Revise
-                                </button>
-                              )}
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleResubmit(quote.id);
-                                }}
-                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-medium transition-colors"
-                              >
-                                Resubmit
-                              </button>
                             </div>
                           </div>
                         </td>
                       </tr>
                       
                       {/* Desktop/Tablet View - Table Layout */}
-                      <tr key={`desktop-${quote.id}`} className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
+                      <tr className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
                         <td className="px-6 py-4">
                           <div 
                             className="font-bold text-red-400 cursor-pointer hover:text-red-300 transition-colors"
                             onClick={() => handleQuotationClick(quote)}
                           >
-                            {quote.id}
+                            QT-{quote.id}
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -524,38 +449,38 @@ const RejectedList = () => {
                             className="font-semibold text-white cursor-pointer hover:text-blue-300 transition-colors"
                             onClick={() => handleQuotationClick(quote)}
                           >
-                            {quote.customer}
+                            {quote.customer_name || quote.customer || 'N/A'}
                           </div>
-                          <div className="text-xs text-gray-400 mt-1">{quote.description}</div>
+                          <div className="text-xs text-gray-400 mt-1">{quote.customer_email || quote.email}</div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-green-400 font-medium text-sm">{quote.service}</span>
+                          <span className="text-green-400 font-medium text-sm">{quote.service || quote.title || 'N/A'}</span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <FiUser className="w-4 h-4 text-purple-400" />
-                            <span className="text-purple-300 text-sm">{quote.salesperson}</span>
+                            <span className="text-purple-300 text-sm">{quote.salesperson || quote.salesman?.name || 'N/A'}</span>
                           </div>
-                          <div className="text-xs text-gray-400 mt-1">{quote.area}</div>
+                          <div className="text-xs text-gray-400 mt-1">{quote.area || quote.salesman?.area || 'N/A'}</div>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <FiCalendar className="w-4 h-4 text-red-400" />
                             <div>
-                              <div className="text-gray-300 text-sm">{quote.rejectDate}</div>
-                              <div className="text-xs text-gray-500">By: {quote.rejectedBy}</div>
+                              <div className="text-gray-300 text-sm">{formatDate(quote.rejected_at || quote.updated_at)}</div>
+                              <div className="text-xs text-gray-500">By: {quote.rejected_by_name || 'System'}</div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
                             <FiDollarSign className="w-4 h-4 text-yellow-400" />
-                            <span className="font-bold text-white">{quote.amount}</span>
+                            <span className="font-bold text-white">${quote.total_amount || quote.amount || '0'}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded text-xs font-medium ${getReasonColor(quote.rejectReason)}`}>
-                            {getReasonLabel(quote.rejectReason)}
+                          <span className={`px-3 py-1 rounded text-xs font-medium ${getReasonColor(quote.rejectReason || 'budget_constraints')}`}>
+                            {getReasonLabel(quote.rejectReason || quote.rejection_reason || 'Other')}
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -570,21 +495,21 @@ const RejectedList = () => {
                               </button>
                             )}
                             <button 
-                              onClick={() => handleQuotationClick(quote)}
-                              className="text-gray-400 hover:text-white transition-colors"
+                                onClick={() => handleQuotationClick(quote)}
+                                className="text-gray-400 hover:text-white transition-colors"
                             >
-                              <FiChevronRight className="w-5 h-5" />
+                                <FiChevronRight className="w-5 h-5" />
                             </button>
                           </div>
                         </td>
                       </tr>
-                    </>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            {filteredQuotations.length === 0 && (
+            {filteredQuotations.length === 0 && !loading && (
               <div className="text-center py-12">
                 <FiXCircle className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                 <p className="text-gray-400">No rejected quotations found</p>
@@ -593,6 +518,12 @@ const RejectedList = () => {
                     ? `No results found for "${searchQuery}". Try a different search term.`
                     : 'No rejected quotations in the system.'}
                 </p>
+              </div>
+            )}
+            {loading && (
+              <div className="text-center py-20 flex flex-col items-center gap-4">
+                <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-gray-400 animate-pulse">Fetching rejected quotations...</p>
               </div>
             )}
           </div>
@@ -686,25 +617,26 @@ const RejectedList = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="p-4 bg-gray-750 rounded-lg">
                         <p className="text-sm text-gray-400">Customer</p>
-                        <p className="font-medium text-lg">{selectedQuotation.customer}</p>
+                        <p className="font-medium text-lg">{selectedQuotation.customer_name || selectedQuotation.customer || 'N/A'}</p>
+                        <p className="text-xs text-gray-500">{selectedQuotation.customer_email || selectedQuotation.email}</p>
                       </div>
                       <div className="p-4 bg-gray-750 rounded-lg">
                         <p className="text-sm text-gray-400">Salesperson</p>
                         <div className="flex items-center gap-2 mt-1">
                           <FiUser className="w-4 h-4 text-purple-400" />
-                          <p className="font-medium">{selectedQuotation.salesperson}</p>
+                          <p className="font-medium">{selectedQuotation.salesperson || selectedQuotation.salesman?.name || 'N/A'}</p>
                         </div>
-                        <p className="text-xs text-gray-400 mt-1">{selectedQuotation.area}</p>
+                        <p className="text-xs text-gray-400 mt-1">{selectedQuotation.area || selectedQuotation.salesman?.area || 'N/A'}</p>
                       </div>
                       <div className="p-4 bg-gray-750 rounded-lg">
                         <p className="text-sm text-gray-400">Service</p>
-                        <p className="font-medium text-green-400">{selectedQuotation.service}</p>
+                        <p className="font-medium text-green-400">{selectedQuotation.service || selectedQuotation.title || 'N/A'}</p>
                       </div>
                       <div className="p-4 bg-gray-750 rounded-lg">
                         <p className="text-sm text-gray-400">Amount</p>
                         <div className="flex items-center gap-2 mt-1">
                           <FiDollarSign className="w-5 h-5 text-yellow-400" />
-                          <p className="font-bold text-2xl">{selectedQuotation.amount}</p>
+                          <p className="font-bold text-2xl">${selectedQuotation.total_amount || selectedQuotation.amount || '0'}</p>
                         </div>
                       </div>
                     </div>
@@ -716,17 +648,16 @@ const RejectedList = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="p-4 bg-red-900/20 rounded-lg border border-red-700/30">
                         <div className="flex items-center gap-3">
-                          <FiCalendar className="w-5 h-5 text-red-400" />
                           <div>
                             <p className="text-sm text-gray-400">Rejected By</p>
-                            <p className="font-medium">{selectedQuotation.rejectedBy}</p>
+                            <p className="font-medium">{selectedQuotation.rejected_by_name || 'System'}</p>
                           </div>
                         </div>
-                        <p className="text-xs text-gray-400 mt-2">Date: {selectedQuotation.rejectDate}</p>
+                        <p className="text-xs text-gray-400 mt-2">Date: {formatDate(selectedQuotation.rejected_at || selectedQuotation.updated_at)}</p>
                       </div>
                       <div className="p-4 bg-red-900/20 rounded-lg border border-red-700/30">
                         <p className="text-sm text-gray-400">Rejection Reason</p>
-                        <p className="font-medium text-red-300 text-lg mt-1">{getReasonLabel(selectedQuotation.rejectReason)}</p>
+                        <p className="font-medium text-red-300 text-lg mt-1">{getReasonLabel(selectedQuotation.rejectReason || selectedQuotation.rejection_reason || 'Other')}</p>
                       </div>
                     </div>
                   </div>

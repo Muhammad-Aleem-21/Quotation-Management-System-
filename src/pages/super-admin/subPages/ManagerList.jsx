@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import API, { getMyTeam } from "../../../api/api";
 import SuperAdminNavbar from "../../../components/SuperAdminNavbar";
 import { FiSearch, FiFilter, FiX, FiMail, FiPhone, FiMapPin, FiFileText, FiCheckCircle, FiXCircle, FiUsers, FiUser } from 'react-icons/fi';
 
@@ -8,106 +9,97 @@ const ManagerList = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedManager, setSelectedManager] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [managers, setManagers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // Dummy data for managers
-  const managers = useMemo(() => [
-    {
-      id: 'MGR-001',
-      fullName: 'Emma Rodriguez',
-      email: 'emma.rodriguez@example.com',
-      contact: '+1 (555) 456-7890',
-      area: 'South America',
-      profileColor: 'bg-yellow-500',
-      initials: 'ER',
-      joinDate: '2023-02-10',
-      lastActive: '2024-01-15',
-      status: 'active',
-      teamSize: 8,
-      stats: {
-        totalQuotations: 94,
-        accepted: 65,
-        rejected: 22,
-        pending: 7,
-        avgResponseTime: '3.2 hours'
-      }
-    },
-    {
-      id: 'MGR-002',
-      fullName: 'Sophia Williams',
-      email: 'sophia.williams@example.com',
-      contact: '+1 (555) 890-1234',
-      area: 'West Coast',
-      profileColor: 'bg-teal-500',
-      initials: 'SW',
-      joinDate: '2023-04-22',
-      lastActive: '2024-01-14',
-      status: 'active',
-      teamSize: 12,
-      stats: {
-        totalQuotations: 156,
-        accepted: 112,
-        rejected: 38,
-        pending: 6,
-        avgResponseTime: '2.8 hours'
-      }
-    },
-    {
-      id: 'MGR-003',
-      fullName: 'James Wilson',
-      email: 'james.wilson@example.com',
-      contact: '+1 (555) 123-4567',
-      area: 'North America',
-      profileColor: 'bg-orange-500',
-      initials: 'JW',
-      joinDate: '2023-07-15',
-      lastActive: '2024-01-15',
-      status: 'active',
-      teamSize: 6,
-      stats: {
-        totalQuotations: 72,
-        accepted: 52,
-        rejected: 15,
-        pending: 5,
-        avgResponseTime: '4.5 hours'
-      }
-    },
-    {
-      id: 'MGR-004',
-      fullName: 'Michael Brown',
-      email: 'michael.brown@example.com',
-      contact: '+1 (555) 234-5678',
-      area: 'Europe',
-      profileColor: 'bg-indigo-500',
-      initials: 'MB',
-      joinDate: '2023-09-30',
-      lastActive: '2024-01-13',
-      status: 'active',
-      teamSize: 10,
-      stats: {
-        totalQuotations: 118,
-        accepted: 85,
-        rejected: 28,
-        pending: 5,
-        avgResponseTime: '3.8 hours'
-      }
-    },
-  ], []);
+  useEffect(() => {
+    fetchManagers();
+  }, []);
+
+  const fetchManagers = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await getMyTeam('manager');
+      
+      const teamData = response.data.team || {};
+      const allUsers = teamData.managers || response.data.users || response.data || [];
+      
+      // Ensure allUsers is an array for filtering
+      const usersArray = Array.isArray(allUsers) ? allUsers : 
+                        (typeof allUsers === 'object' ? Object.values(allUsers).flat().filter(Array.isArray).flat() : []);
+      
+      const getUserColor = (role) => {
+        const colors = {
+          'super-admin': 'bg-red-500',
+          'admin': 'bg-purple-500',
+          'manager': 'bg-green-500',
+          'salesperson': 'bg-blue-500'
+        };
+        return colors[role.toLowerCase()] || 'bg-gray-500';
+      };
+
+      // Filter and transform for Managers
+      const managerUsers = usersArray
+        .filter(user => {
+          if (!user) return false;
+          const role = user.role || (user.roles && user.roles[0]?.name) || (user.roles && user.roles[0]) || '';
+          return role.toLowerCase() === 'manager' || !role; // Fallback if role is missing but it's in the managers list
+        })
+        .map(user => {
+          const roleName = 'Manager';
+          const profile = user.profile || {};
+          
+          // Reports To Admin logic
+          const admin = user.admin || user.creator;
+          const reportsTo = admin ? (admin.name || admin.fullName) : (user.admin_id ? `Admin #${user.admin_id}` : 'Operations Admin');
+
+          return {
+            ...user,
+            fullName: user.name || user.fullName || 'N/A',
+            role: roleName,
+            creatorName: reportsTo,
+            address: user.address || profile.address || 'Not Provided',
+            area: user.region || user.area || profile.region || profile.area || 'N/A',
+            contact: user.phone || user.contact || profile.phone || profile.contact || 'N/A',
+            bio: user.bio || profile.bio || '',
+            initials: (user.name || user.fullName || 'N').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
+            profileColor: getUserColor(roleName),
+            joinDate: user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A',
+            lastActive: user.updated_at ? new Date(user.updated_at).toLocaleDateString() : 'Recently',
+            status: 'active',
+            teamSize: user.salespersons_count || user.team_size || 0,
+            stats: {
+                totalQuotations: user.quotations_count || 0,
+                accepted: user.accepted_quotations_count || 0,
+                rejected: user.rejected_quotations_count || 0,
+                pending: user.pending_quotations_count || 0,
+                avgResponseTime: user.avg_response_time || 'N/A'
+            }
+          };
+        });
+
+      setManagers(managerUsers);
+    } catch (err) {
+      console.error("Error fetching managers:", err);
+      setError("Failed to load managers list. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredManagers = useMemo(() => {
-    let result = [...managers];
+    if (!searchQuery) return managers;
     
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(manager =>
-        manager.fullName.toLowerCase().includes(query) ||
-        manager.email.toLowerCase().includes(query) ||
-        manager.area.toLowerCase().includes(query) ||
-        manager.id.toLowerCase().includes(query)
-      );
-    }
-    
-    return result;
+    const query = searchQuery.toLowerCase();
+    return managers.filter(manager =>
+      manager.fullName.toLowerCase().includes(query) ||
+      manager.email.toLowerCase().includes(query) ||
+      manager.area.toLowerCase().includes(query) ||
+      manager.id.toString().toLowerCase().includes(query)
+    );
   }, [managers, searchQuery]);
 
   const handleManagerClick = (manager) => {
@@ -173,110 +165,141 @@ const ManagerList = () => {
           </div>
 
           {/* Stats Summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-            <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-              <p className="text-gray-400 text-sm">Total Managers</p>
-              <p className="text-2xl font-bold text-yellow-400">{managers.length}</p>
+          {!loading && !error && (
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+              <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                <p className="text-gray-400 text-sm">Total Managers</p>
+                <p className="text-2xl font-bold text-yellow-400">{managers.length}</p>
+              </div>
+              <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                <p className="text-gray-400 text-sm">Total Team Size</p>
+                <p className="text-2xl font-bold text-green-400">
+                  {managers.reduce((sum, manager) => sum + (manager.teamSize || 0), 0)}
+                </p>
+              </div>
+              <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                <p className="text-gray-400 text-sm">Total Quotations</p>
+                <p className="text-2xl font-bold text-blue-400">
+                  {managers.reduce((sum, manager) => sum + (manager.stats.totalQuotations || 0), 0)}
+                </p>
+              </div>
+              <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
+                <p className="text-gray-400 text-sm">Avg Acceptance</p>
+                <p className="text-2xl font-bold text-purple-400">
+                  {managers.length > 0 
+                    ? (managers.reduce((sum, manager) => {
+                        const rate = manager.stats.totalQuotations > 0 
+                          ? (manager.stats.accepted / manager.stats.totalQuotations) * 100 
+                          : 0;
+                        return sum + rate;
+                      }, 0) / managers.length).toFixed(1)
+                    : 0}%
+                </p>
+              </div>
             </div>
-            <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-              <p className="text-gray-400 text-sm">Total Team Size</p>
-              <p className="text-2xl font-bold text-green-400">
-                {managers.reduce((sum, manager) => sum + manager.teamSize, 0)}
-              </p>
+          )}
+
+          {/* Loading State */}
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-400">Fetching managers...</p>
             </div>
-            <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-              <p className="text-gray-400 text-sm">Total Quotations</p>
-              <p className="text-2xl font-bold text-blue-400">
-                {managers.reduce((sum, manager) => sum + manager.stats.totalQuotations, 0)}
-              </p>
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-6 text-center mb-6">
+              <p className="text-red-400 mb-4">{error}</p>
+              <button 
+                onClick={fetchManagers}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Retry
+              </button>
             </div>
-            <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-              <p className="text-gray-400 text-sm">Avg Response Time</p>
-              <p className="text-2xl font-bold text-purple-400">
-                {(
-                  managers.reduce((sum, manager) => {
-                    const time = parseFloat(manager.stats.avgResponseTime.split(' ')[0]);
-                    return sum + time;
-                  }, 0) / managers.length
-                ).toFixed(1)}h
-              </p>
-            </div>
-          </div>
+          )}
 
           {/* Managers Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredManagers.map((manager) => (
-              <div 
-                key={manager.id}
-                onClick={() => handleManagerClick(manager)}
-                className="bg-gray-800 rounded-xl border border-gray-700 p-4 cursor-pointer hover:border-yellow-500 hover:scale-[1.02] transition-all duration-200"
-              >
-                <div className="flex items-start gap-3 mb-4">
-                  <div className={`${manager.profileColor} w-12 h-12 rounded-full flex items-center justify-center text-white font-bold`}>
-                    {manager.initials}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-lg">{manager.fullName}</h3>
-                      <span className="bg-yellow-600 text-xs px-2 py-1 rounded-full">
-                        Manager
-                      </span>
+          {!loading && !error && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredManagers.map((manager) => (
+                <div 
+                  key={manager.id}
+                  onClick={() => handleManagerClick(manager)}
+                  className="bg-gray-800 rounded-xl border border-gray-700 p-4 cursor-pointer hover:border-yellow-500 hover:scale-[1.02] transition-all duration-200"
+                >
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className={`${manager.profileColor} w-12 h-12 rounded-full flex items-center justify-center text-white font-bold`}>
+                      {manager.initials}
                     </div>
-                    <p className="text-gray-400 text-sm mt-1">{manager.email}</p>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-lg">{manager.fullName}</h3>
+                        <span className="bg-yellow-600 text-xs px-2 py-1 rounded-full">
+                          Manager
+                        </span>
+                      </div>
+                      <p className="text-gray-400 text-sm mt-1 truncate max-w-[150px]">{manager.email}</p>
+                    </div>
                   </div>
-                </div>
 
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <FiPhone className="w-4 h-4" />
-                    <span className="text-sm">{manager.contact}</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <FiPhone className="w-4 h-4" />
+                      <span className="text-sm">{manager.contact}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <FiMapPin className="w-4 h-4" />
+                      <span className="text-sm truncate">{manager.area}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <FiUsers className="w-4 h-4" />
+                      <span className="text-sm">{manager.teamSize} team members</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <FiMapPin className="w-4 h-4" />
-                    <span className="text-sm">{manager.area}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <FiUsers className="w-4 h-4" />
-                    <span className="text-sm">{manager.teamSize} team members</span>
-                  </div>
-                </div>
 
-                {/* Manager Stats */}
-                <div className="mt-4 pt-4 border-t border-gray-700">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <FiFileText className="w-4 h-4 text-blue-400" />
-                        <span className="text-sm text-gray-400">Total</span>
+                  {/* Manager Stats */}
+                  <div className="mt-4 pt-4 border-t border-gray-700">
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="text-center p-2 bg-gray-900/30 rounded-lg">
+                        <div className="flex items-center justify-center gap-1 mb-1">
+                          <FiFileText className="w-3 h-3 text-blue-400" />
+                          <span className="text-[10px] text-gray-400 uppercase">Quotations</span>
+                        </div>
+                        <p className="font-bold text-lg">{manager.stats.totalQuotations}</p>
                       </div>
-                      <p className="font-bold text-lg">{manager.stats.totalQuotations}</p>
+                      <div className="text-center p-2 bg-gray-900/30 rounded-lg">
+                        <div className="flex items-center justify-center gap-1 mb-1">
+                          <FiCheckCircle className="w-3 h-3 text-green-400" />
+                          <span className="text-[10px] text-gray-400 uppercase">Accepted</span>
+                        </div>
+                        <p className="font-bold text-lg">{manager.stats.accepted}</p>
+                      </div>
+                      <div className="text-center p-2 bg-gray-900/30 rounded-lg">
+                        <div className="flex items-center justify-center gap-1 mb-1">
+                          <FiXCircle className="w-3 h-3 text-red-400" />
+                          <span className="text-[10px] text-gray-400 uppercase">Rejected</span>
+                        </div>
+                        <p className="font-bold text-lg">{manager.stats.rejected}</p>
+                      </div>
+                      <div className="text-center p-2 bg-gray-900/30 rounded-lg">
+                        <div className="flex items-center justify-center gap-1 mb-1">
+                          <FiUser className="w-3 h-3 text-yellow-400" />
+                          <span className="text-[10px] text-gray-400 uppercase">Pending</span>
+                        </div>
+                        <p className="font-bold text-lg">{manager.stats.pending}</p>
+                      </div>
                     </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <FiCheckCircle className="w-4 h-4 text-green-400" />
-                        <span className="text-sm text-gray-400">Accepted</span>
-                      </div>
-                      <p className="font-bold text-lg">{manager.stats.accepted}</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <FiXCircle className="w-4 h-4 text-red-400" />
-                        <span className="text-sm text-gray-400">Rejected</span>
-                      </div>
-                      <p className="font-bold text-lg">{manager.stats.rejected}</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <FiUser className="w-4 h-4 text-yellow-400" />
-                        <span className="text-sm text-gray-400">Pending</span>
-                      </div>
-                      <p className="font-bold text-lg">{manager.stats.pending}</p>
+                    <div className="mt-3 text-center">
+                       <span className="text-[10px] text-gray-500 uppercase">Avg Response: </span>
+                       <span className="text-[10px] font-bold text-purple-400">{manager.stats.avgResponseTime}</span>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           {/* No Results */}
           {filteredManagers.length === 0 && (

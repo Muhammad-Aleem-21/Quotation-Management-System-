@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import API from "../../api/api";
+import API, { createManager, getTeamStats } from "../../api/api";
 import {
   LineChart,
   Line,
@@ -49,38 +49,38 @@ const DashboardData = {
     },
     {
       title: "Managers",
-      value: 12,
-      change: "+3 this month",
+      value: 0,
+      change: "Live Data",
       iconBg: "bg-purple-600",
-      route: "/admin/managers",
+      route: "/admin-team-management?tab=managers",
     },
     {
       title: "Salespersons",
-      value: 45,
-      change: "+8 this month",
+      value: 0,
+      change: "Live Data",
       iconBg: "bg-indigo-600",
-      route: "/allsalesperson",
+      route: "/admin-team-management?tab=salespersons",
     },
   ],
 
   userStats: [
     {
       title: "Managers",
-      value: 12,
-      change: "+3 this month",
+      value: 0,
+      change: "In your team",
       icon: "👨‍💼",
       bgColor: "bg-gradient-to-br from-purple-500/20 to-purple-800/20",
       borderColor: "border-purple-500/30",
-      route: "/admin/managers",
+      route: "/admin-team-management?tab=managers",
     },
     {
       title: "Salespersons",
-      value: 45,
-      change: "+8 this month",
+      value: 0,
+      change: "In your team",
       icon: "👥",
       bgColor: "bg-gradient-to-br from-indigo-500/20 to-indigo-800/20",
       borderColor: "border-indigo-500/30",
-      route: "/allsalesperson",
+      route: "/admin-team-management?tab=salespersons",
     },
     {
       title: "Win Quotations",
@@ -115,49 +115,69 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const [showCreateManagerForm, setShowCreateManagerForm] = useState(false);
+  const [liveStats, setLiveStats] = useState({ managers: 0, salespersons: 0 });
+
+  React.useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await getTeamStats();
+        if (response.data.success) {
+          const myTeam = response.data.dashboard_stats.my_team || [];
+          const adminId = String(user.id);
+          
+          // Filter team members created by this specific admin
+          const myAdminTeam = myTeam.filter(
+            (member) => String(member.created_by_admin) === adminId
+          );
+
+          // Calculate counts from filtered team
+          const managersCount = myAdminTeam.filter(
+            (m) => m.manager_id === null || m.role?.toLowerCase() === "manager"
+          ).length;
+          const salesCount = myAdminTeam.filter(
+            (m) => m.manager_id !== null || m.role?.toLowerCase() === "salesperson"
+          ).length;
+
+          setLiveStats({
+            managers: managersCount,
+            salespersons: salesCount,
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching live stats:", err);
+      }
+    };
+    fetchStats();
+  }, [user.id]);
 
   const handleCreateManager = async (managerData) => {
-    const payload = {
-      name: managerData.name,
-      email: managerData.email,
-      password: managerData.password,
-      password_confirmation: managerData.confirmPassword,
-      contact: managerData.contact,
-      address: managerData.address,
-      region: managerData.region,
-      role: 'manager', 
-      team_size: Number(managerData.teamSize),
-      admin_id: user.id, // Explicitly linking the admin who is creating the manager
-      created_by_admin: user.id // Also adding this variation to be safe
-    };
-
-    console.log("Sending Create Manager Payload:", payload);
-
     try {
-      const response = await API.post('/users/create-manager', payload);
+      const payload = {
+        name: managerData.name,
+        email: managerData.email,
+        password: managerData.password,
+        password_confirmation: managerData.confirmPassword,
+        phone: managerData.contact,
+        address: managerData.address,
+        region: managerData.region,
+        role: 'manager', 
+        team_size: Number(managerData.teamSize),
+        admin_id: user.id,
+      };
 
+      const response = await createManager(payload);
+      
       if (response.data.success) {
-        alert(response.data.message || 'Manager created successfully!');
+        alert(response.data.message || "Manager created successfully");
         setShowCreateManagerForm(false);
-      } else {
-        alert(response.data.message || 'Failed to create manager');
+        // In a real app, we'd refetch data here. 
+        // For now, since most other things are static/dummy in this dashboard, 
+        // we'll just show the success.
       }
-    } catch (error) {
-      console.error('Error creating manager:', error);
-      console.error('Error details:', error.response?.data);
-      
-      const errorMessage = error.response?.data?.message || 
-                          error.response?.data?.error || 
-                          'An error occurred while creating manager';
-      
-      // If there are validation errors, show them
-      const validationErrors = error.response?.data?.errors;
-      if (validationErrors) {
-        const firstError = Object.values(validationErrors).flat()[0];
-        alert(`Validation Error: ${firstError}`);
-      } else {
-        alert(errorMessage);
-      }
+    } catch (err) {
+      console.error("Error creating manager:", err);
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || "Failed to create manager";
+      alert(errorMsg);
     }
   };
 
@@ -218,36 +238,39 @@ export default function AdminDashboard() {
 
       {/* ---------------- User Stats Grid ---------------- */}
       <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-6 mb-10">
-        {DashboardData.userStats.map((item, idx) => (
-          <div
-            key={idx}
-            onClick={() => navigate(item.route)}
-            className={`${item.bgColor} rounded-2xl p-6 shadow-lg border ${item.borderColor} flex justify-between items-center cursor-pointer hover:border-blue-500 transition-all duration-200`}
-          >
-            <div>
-              <p className="text-gray-300">{item.title}</p>
-              <h2 className="text-4xl font-bold mt-2 text-white">
-                {item.value}
-              </h2>
-              <p
-                className={`text-sm mt-1 ${
-                  item.change.includes("-") ? "text-red-400" : "text-green-400"
+        {DashboardData.userStats.map((item, idx) => {
+          const displayValue = idx === 0 ? liveStats.managers : (idx === 1 ? liveStats.salespersons : item.value);
+          return (
+            <div
+              key={idx}
+              onClick={() => navigate(item.route)}
+              className={`${item.bgColor} rounded-2xl p-6 shadow-lg border ${item.borderColor} flex justify-between items-center cursor-pointer hover:border-blue-500 transition-all duration-200`}
+            >
+              <div>
+                <p className="text-gray-300">{item.title}</p>
+                <h2 className="text-4xl font-bold mt-2 text-white">
+                  {displayValue}
+                </h2>
+                <p
+                  className={`text-sm mt-1 ${
+                    item.change.includes("-") ? "text-red-400" : "text-green-400"
+                  }`}
+                >
+                  {item.change}
+                </p>
+                <p className="text-gray-500 text-xs mt-2">Click to view →</p>
+              </div>
+
+              <div
+                className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white text-3xl ${
+                  idx === 0 ? "bg-purple-600" : "bg-indigo-600"
                 }`}
               >
-                {item.change}
-              </p>
-              <p className="text-gray-500 text-xs mt-2">Click to view →</p>
+                {item.icon}
+              </div>
             </div>
-
-            <div
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white text-3xl ${
-                idx === 0 ? "bg-purple-600" : "bg-indigo-600"
-              }`}
-            >
-              {item.icon}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* ---------------- Charts Section ---------------- */}

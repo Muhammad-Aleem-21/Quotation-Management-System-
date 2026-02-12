@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import API, { logoutUser } from "../../api/api";
-import { FiUser, FiMail, FiShield, FiSave, FiEdit2, FiX, FiCheckCircle, FiLock, FiEye, FiEyeOff, FiLogOut } from "react-icons/fi";
+import API from "../../api/api";
+import { FiUser, FiMail, FiShield, FiSave, FiEdit2, FiX, FiCheckCircle, FiLock, FiEye, FiEyeOff } from "react-icons/fi";
 
-const SuperadminProfile = () => {
-  const navigate = useNavigate();
+const AdminProfile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -12,7 +10,6 @@ const SuperadminProfile = () => {
   const [error, setError] = useState(null);
   const [passwordError, setPasswordError] = useState(null);
   const [successMsg, setSuccessMsg] = useState("");
-  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   const [passwordData, setPasswordData] = useState({
     current_password: "",
@@ -27,9 +24,13 @@ const SuperadminProfile = () => {
   });
   
   const [profileData, setProfileData] = useState({
+    id: "",
     name: "",
     email: "",
     roles: [],
+    email_verified_at: "",
+    created_at: "",
+    updated_at: "",
   });
 
   useEffect(() => {
@@ -40,7 +41,7 @@ const SuperadminProfile = () => {
     try {
       setLoading(true);
       setError(null);
-      console.log("Fetching Super Admin Profile from: /profile");
+      console.log("Fetching Admin Profile from: /profile");
       const response = await API.get("/profile");
       console.log("Profile Fetch Response:", response.data);
       
@@ -139,9 +140,10 @@ const SuperadminProfile = () => {
       console.log("Password Change Response:", response.data);
 
       if (response.data.success) {
+        setSuccessMsg(response.data.message || "Password changed successfully");
         setShowPasswordModal(false);
         setPasswordData({ current_password: "", new_password: "", new_password_confirmation: "" });
-        setShowSuccessPopup(true);
+        setTimeout(() => setSuccessMsg(""), 3000);
       }
     } catch (err) {
       console.error("Error changing password:", err);
@@ -158,25 +160,21 @@ const SuperadminProfile = () => {
       setSaving(false);
     }
   };
-  
-  const handleFinalLogout = async () => {
-    try {
-      await logoutUser();
-    } catch (err) {
-      console.error("Logout error during password change:", err);
-    } finally {
-      localStorage.removeItem("user");
-      localStorage.removeItem("role");
-      localStorage.removeItem("token");
-      navigate("/");
-    }
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] text-white">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
           <p className="text-gray-400">Loading your profile...</p>
         </div>
       </div>
@@ -188,11 +186,11 @@ const SuperadminProfile = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
             My Profile
           </h1>
           <p className="text-gray-400 mt-1">
-            Manage your Super Admin account details
+            Manage your Admin account details
           </p>
         </div>
 
@@ -200,7 +198,7 @@ const SuperadminProfile = () => {
           {!isEditing ? (
             <button
               onClick={() => setIsEditing(true)}
-              className="bg-red-600 hover:bg-red-700 px-6 py-2.5 rounded-xl font-semibold text-white flex gap-2 items-center transition-all duration-200 shadow-lg shadow-red-600/20"
+              className="bg-blue-600 hover:bg-blue-700 px-6 py-2.5 rounded-xl font-semibold text-white flex gap-2 items-center transition-all duration-200 shadow-lg shadow-blue-600/20"
             >
               <FiEdit2 /> Edit Profile
             </button>
@@ -248,7 +246,7 @@ const SuperadminProfile = () => {
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-8 shadow-xl">
             <h2 className="text-xl font-bold mb-8 flex items-center gap-2 border-b border-gray-700 pb-4">
-              <FiUser className="text-red-500" /> Account Information
+              <FiUser className="text-blue-500" /> Account Information
             </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -264,7 +262,7 @@ const SuperadminProfile = () => {
                       name="name"
                       value={profileData.name}
                       onChange={handleInputChange}
-                      className="w-full bg-gray-700/50 border border-gray-600 rounded-xl pl-11 pr-4 py-3 text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all"
+                      className="w-full bg-gray-700/50 border border-gray-600 rounded-xl pl-11 pr-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                       placeholder="Enter your name"
                     />
                   </div>
@@ -287,7 +285,7 @@ const SuperadminProfile = () => {
                       name="email"
                       value={profileData.email}
                       onChange={handleInputChange}
-                      className="w-full bg-gray-700/50 border border-gray-600 rounded-xl pl-11 pr-4 py-3 text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all"
+                      className="w-full bg-gray-700/50 border border-gray-600 rounded-xl pl-11 pr-4 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
                       placeholder="Enter your email"
                     />
                   </div>
@@ -302,10 +300,10 @@ const SuperadminProfile = () => {
                 <label className="block text-gray-400 text-sm font-medium mb-2 uppercase tracking-wider">
                   Account Role
                 </label>
-                <div className="flex items-center gap-3 bg-red-900/10 border border-red-500/20 px-4 py-3 rounded-xl">
-                  <FiShield className="text-red-400" />
-                  <span className="text-red-400 font-bold uppercase tracking-widest text-sm">
-                    {profileData.roles[0]?.replace('_', ' ') || 'Super Admin'}
+                <div className="flex items-center gap-3 bg-blue-900/10 border border-blue-500/20 px-4 py-3 rounded-xl">
+                  <FiShield className="text-blue-400" />
+                  <span className="text-blue-400 font-bold uppercase tracking-widest text-sm">
+                    {profileData.roles[0]?.replace('_', ' ') || 'Admin'}
                   </span>
                 </div>
               </div>
@@ -316,6 +314,24 @@ const SuperadminProfile = () => {
                 </label>
                 <div className="bg-gray-900/30 px-4 py-3 rounded-xl border border-gray-700/50">
                   <p className="text-white font-mono">#{profileData.id}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-400 text-sm font-medium mb-2 uppercase tracking-wider">
+                  Email Verified
+                </label>
+                <div className="bg-gray-900/30 px-4 py-3 rounded-xl border border-gray-700/50">
+                  <p className="text-white">{formatDate(profileData.email_verified_at)}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-400 text-sm font-medium mb-2 uppercase tracking-wider">
+                  Account Created
+                </label>
+                <div className="bg-gray-900/30 px-4 py-3 rounded-xl border border-gray-700/50">
+                  <p className="text-white">{formatDate(profileData.created_at)}</p>
                 </div>
               </div>
             </div>
@@ -360,19 +376,19 @@ const SuperadminProfile = () => {
         <div className="space-y-6">
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-8 text-center shadow-xl relative overflow-hidden">
             {/* Decoration */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-red-600/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
             
             <div className="relative">
-              <div className="w-28 h-28 bg-gradient-to-br from-red-600 to-orange-500 rounded-full mx-auto mb-6 flex items-center justify-center text-white text-3xl font-black shadow-2xl shadow-red-600/30 border-4 border-gray-800">
-                {profileData.name.charAt(0).toUpperCase() || 'S'}
+              <div className="w-28 h-28 bg-gradient-to-br from-blue-600 to-purple-500 rounded-full mx-auto mb-6 flex items-center justify-center text-white text-3xl font-black shadow-2xl shadow-blue-600/30 border-4 border-gray-800">
+                {profileData.name.charAt(0).toUpperCase() || 'A'}
               </div>
               <h3 className="text-2xl font-bold text-white">{profileData.name}</h3>
-              <p className="text-gray-400 font-medium mb-6">Master Access Control</p>
+              <p className="text-gray-400 font-medium mb-6">Admin Access Control</p>
               
               <div className="pt-6 border-t border-gray-700 space-y-3">
                 <button 
                   onClick={() => setShowPasswordModal(true)}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold transition-all duration-200 flex items-center justify-center gap-2"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold transition-all duration-200 flex items-center justify-center gap-2"
                 >
                   <FiLock /> Change Password
                 </button>
@@ -382,18 +398,18 @@ const SuperadminProfile = () => {
 
           <div className="bg-gray-800 rounded-2xl border border-gray-700 p-8 shadow-xl">
             <h3 className="text-lg font-bold mb-6 flex items-center gap-2">
-               System Privileges
+               Admin Privileges
             </h3>
             <div className="space-y-4">
               {[
-                "Full User Access",
-                "Administrative Control",
-                "Quotation Management",
-                "System Audit Oversight",
-                "Product & Pricing Access"
+                "Manager Management",
+                "Quotation Oversight",
+                "Salesperson Monitoring",
+                "Product Management",
+                "Report Generation"
               ].map((privilege, i) => (
                 <div key={i} className="flex items-center gap-3 text-sm text-gray-300">
-                  <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
                   {privilege}
                 </div>
               ))}
@@ -402,7 +418,7 @@ const SuperadminProfile = () => {
           
           <div className="bg-gradient-to-br from-blue-900/20 to-purple-900/20 rounded-2xl border border-blue-500/20 p-8 shadow-xl">
              <h3 className="text-blue-300 font-bold mb-2">Need Help?</h3>
-             <p className="text-gray-400 text-sm mb-4">Questions about your Super Admin privileges or account settings?</p>
+             <p className="text-gray-400 text-sm mb-4">Questions about your Admin privileges or account settings?</p>
              <button className="text-blue-400 font-bold text-sm hover:underline">Contact Support →</button>
           </div>
         </div>
@@ -414,7 +430,7 @@ const SuperadminProfile = () => {
           <div className="bg-gray-800 rounded-2xl border border-gray-700 w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="p-6 border-b border-gray-700 flex justify-between items-center bg-gray-800/50">
               <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <FiLock className="text-red-500" /> Change Password
+                <FiLock className="text-blue-500" /> Change Password
               </h3>
               <button 
                 onClick={() => { setShowPasswordModal(false); setPasswordError(null); }}
@@ -441,7 +457,7 @@ const SuperadminProfile = () => {
                     required
                     value={passwordData.current_password}
                     onChange={handlePasswordChange}
-                    className="w-full bg-gray-700/50 border border-gray-600 rounded-xl pl-11 pr-12 py-3 text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                    className="w-full bg-gray-700/50 border border-gray-600 rounded-xl pl-11 pr-12 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     placeholder="Enter current password"
                   />
                   <button
@@ -464,7 +480,7 @@ const SuperadminProfile = () => {
                     required
                     value={passwordData.new_password}
                     onChange={handlePasswordChange}
-                    className="w-full bg-gray-700/50 border border-gray-600 rounded-xl pl-11 pr-12 py-3 text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                    className="w-full bg-gray-700/50 border border-gray-600 rounded-xl pl-11 pr-12 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     placeholder="Min. 8 characters"
                   />
                   <button
@@ -487,7 +503,7 @@ const SuperadminProfile = () => {
                     required
                     value={passwordData.new_password_confirmation}
                     onChange={handlePasswordChange}
-                    className="w-full bg-gray-700/50 border border-gray-600 rounded-xl pl-11 pr-12 py-3 text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                    className="w-full bg-gray-700/50 border border-gray-600 rounded-xl pl-11 pr-12 py-3 text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     placeholder="Repeat new password"
                   />
                   <button
@@ -512,7 +528,7 @@ const SuperadminProfile = () => {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 bg-gradient-to-r from-red-600 to-orange-500 hover:from-red-700 hover:to-orange-600 text-white py-3 rounded-xl font-bold transition-all duration-200 shadow-lg shadow-red-600/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-500 hover:from-blue-700 hover:to-purple-600 text-white py-3 rounded-xl font-bold transition-all duration-200 shadow-lg shadow-blue-600/20 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {saving ? (
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -524,32 +540,8 @@ const SuperadminProfile = () => {
           </div>
         </div>
       )}
-      {/* Success Animation Popup */}
-      {showSuccessPopup && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4 backdrop-blur-sm shadow-2xl">
-          <div className="bg-gray-800 rounded-3xl border-2 border-green-500/50 w-full max-w-sm shadow-[0_0_50px_rgba(34,197,94,0.3)] overflow-hidden animate-in fade-in zoom-in duration-300 text-center p-8">
-            <div className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-white text-4xl mx-auto mb-6 animate-bounce shadow-lg shadow-green-500/20">
-              <FiCheckCircle />
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2 tracking-tight">Password Changed!</h2>
-            <p className="text-gray-400 mb-6 text-sm">Your security credentials have been updated successfully.</p>
-            
-            <div className="bg-gray-900/50 rounded-2xl p-6 border border-gray-700 mb-6">
-              <p className="text-gray-300 text-sm mb-4">Please log in again with your new credentials to continue.</p>
-              <button
-                onClick={handleFinalLogout}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold transition-all duration-200 shadow-lg shadow-green-600/20 flex items-center justify-center gap-2 group"
-              >
-                <span>OK, Logout</span>
-                <FiLogOut className="group-hover:translate-x-1 transition-transform" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
-export default SuperadminProfile;
-
+export default AdminProfile;

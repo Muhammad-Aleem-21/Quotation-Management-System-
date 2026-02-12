@@ -127,10 +127,12 @@ import {
   FiFilePlus,
   FiClipboard,
   FiUser,
+  FiUsers,
   FiLogOut,
   FiMenu,
   FiX,
 } from "react-icons/fi";
+import { logoutUser } from "../api/api";
 
 export default function SalespersonNavbar({ open, setOpen }) {
   const navigate = useNavigate();
@@ -143,14 +145,22 @@ export default function SalespersonNavbar({ open, setOpen }) {
       path: "/create-quotation",
     },
     { name: "My Quotation", icon: <FiClipboard />, path: "/my-quotation" },
+    { name: "Team Management", icon: <FiUsers />, path: "/sales-team-management" },
     { name: "Profile", icon: <FiUser />, path: "/profile" },
   ];
 
-  // Logout function
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem("role");
-    navigate("/"); // Redirect to login page
+  // Logout function - calls API then clears local storage
+  const handleLogout = async () => {
+    try {
+      await logoutUser();
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      localStorage.removeItem("token");
+      navigate("/");
+    }
   };
 
   return (

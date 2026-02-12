@@ -1,95 +1,86 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { FiUser } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import AddTeamMemberModal from './AddTeamMemberModal';
 import SalespersonProfileModal from './SalespersonProfileModal';
+import { getMyTeam, getTeamStats } from '../../api/api';
 
 const TeamManagement = () => {
   const navigate = useNavigate();
   const teamListRef = useRef(null);
   
-  const [teamMembers, setTeamMembers] = useState([
-    {
-      id: 1,
-      name: 'Farhan',
-      email: 'Farhan@company.com',
-      role: 'Senior Sales Executive',
-      status: 'Active',
-      joinDate: '2023-01-15',
-      performance: 'Excellent',
-      currentQuotations: 5,
-      contact: '+92 300 1234567',
-      area: 'Karachi',
-      quotationsCreated: 25,
-      quotationsApproved: 18,
-      quotationsWon: 12,
-      totalRevenue: '$45,200',
-      activeProjects: 3,
-      joinYear: 2023
-    },
-    {
-      id: 2,
-      name: 'M ali',
-      email: 'ali@company.com',
-      role: 'Sales Executive',
-      status: 'Active',
-      joinDate: '2023-03-10',
-      performance: 'Good',
-      currentQuotations: 4,
-      contact: '+92 321 9876543',
-      area: 'Lahore',
-      quotationsCreated: 18,
-      quotationsApproved: 14,
-      quotationsWon: 8,
-      totalRevenue: '$28,500',
-      activeProjects: 2,
-      joinYear: 2023
-    },
-    {
-      id: 3,
-      name: 'M Aleem',
-      email: 'aleem@company.com',
-      role: 'Junior Sales Executive',
-      status: 'Active',
-      joinDate: '2023-06-22',
-      performance: 'Needs Improvement',
-      currentQuotations: 3,
-      contact: '+92 333 4567890',
-      area: 'Islamabad',
-      quotationsCreated: 10,
-      quotationsApproved: 7,
-      quotationsWon: 3,
-      totalRevenue: '$12,800',
-      activeProjects: 1,
-      joinYear: 2023
-    },
-    {
-      id: 4,
-      name: 'Ahmad',
-      email: 'ahmad@company.com',
-      role: 'Sales Executive',
-      status: 'On Leave',
-      joinDate: '2023-02-28',
-      performance: 'Good',
-      currentQuotations: 0,
-      contact: '+92 345 6789012',
-      area: 'Rawalpindi',
-      quotationsCreated: 15,
-      quotationsApproved: 11,
-      quotationsWon: 6,
-      totalRevenue: '$22,300',
-      activeProjects: 0,
-      joinYear: 2023
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [stats, setStats] = useState({
+    teamSize: 0,
+    activeMembers: 0,
+    activeQuotations: 0,
+    avgPerformance: 'Good'
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchTeamMembers();
+  }, []);
+
+  const fetchTeamMembers = async () => {
+    try {
+      setLoading(true);
+      const [usersRes, statsRes] = await Promise.all([
+        getMyTeam('salesperson'),
+        getTeamStats()
+      ]);
+
+      // Process stats
+      let salespersonList = [];
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const userId = user.id?.toString();
+
+      if (statsRes.data && statsRes.data.dashboard_stats) {
+        const ds = statsRes.data.dashboard_stats;
+        
+        // Filter by current manager's ID
+        salespersonList = (ds.my_team || []).filter(member => 
+          member.manager_id?.toString() === userId || 
+          member.parent_id?.toString() === userId
+        );
+
+        setTeamMembers(salespersonList);
+        
+        setStats({
+          teamSize: salespersonList.length,
+          activeMembers: salespersonList.length,
+          activeQuotations: ds.active_quotations || 0,
+          avgPerformance: ds.avg_performance || 'Good'
+        });
+      } else {
+        // Fallback to usersRes if stats structure is different
+        const users = usersRes.data.users || usersRes.data || [];
+        salespersonList = users.filter(user => {
+          const role = (user.role || '').toLowerCase();
+          const roles = user.roles || [];
+          const isSalesperson = role === 'salesperson' || roles.some(r => (r.name || '').toLowerCase() === 'salesperson');
+          const isMyRecruit = user.manager_id?.toString() === userId || user.parent_id?.toString() === userId;
+          return isSalesperson && isMyRecruit;
+        });
+        setTeamMembers(salespersonList);
+        setStats(prev => ({ ...prev, teamSize: salespersonList.length, activeMembers: salespersonList.length }));
+      }
+    } catch (err) {
+      console.error("Error fetching team details:", err);
+      setError("Failed to load team information");
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
   const [showModal, setShowModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
 
   const getStatusColor = (status) => {
-    return status === "Active" ? "bg-green-500/20 text-green-300" : 
-           status === "On Leave" ? "bg-yellow-500/20 text-yellow-300" : "bg-red-500/20 text-red-300";
+    return (status || '').toLowerCase() === "active" ? "bg-green-500/20 text-green-300" : 
+           (status || '').toLowerCase() === "on leave" ? "bg-yellow-500/20 text-yellow-300" : "bg-red-500/20 text-red-300";
   };
 
   const getPerformanceColor = (performance) => {
@@ -102,9 +93,9 @@ const TeamManagement = () => {
   };
 
   const handleAddMember = (newMember) => {
-    setTeamMembers(prev => [...prev, newMember]);
+    fetchTeamMembers(); // Refetch from server to get accurate state
     setShowModal(false);
-    alert('Team member added successfully!');
+    // Success alert is now inside modal or we can keep it here
   };
 
   const handleViewProfile = (member) => {
@@ -140,38 +131,40 @@ const TeamManagement = () => {
 
       {/* Team Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        {/* Team Size Card - Clickable to scroll to list */}
+        {/* Team Size Card - Clickable to show count and scroll to list */}
         <div 
           className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700 cursor-pointer hover:border-green-500 transition-colors duration-200"
-          onClick={scrollToTeamList}
+          onClick={() => {
+            scrollToTeamList();
+          }}
         >
-          <p className="text-gray-400 text-sm sm:text-base">Team Size</p>
-          <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{teamMembers.length}</h2>
-          <p className="text-green-400 text-xs sm:text-sm mt-1">Members</p>
-          <p className="text-gray-500 text-xs mt-2">Click to view team list →</p>
+          <p className="text-gray-400 text-sm sm:text-base">Total Salespersons</p>
+          <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{stats.teamSize}</h2>
+          <p className="text-green-400 text-xs sm:text-sm mt-1">Team Members</p>
+          <p className="text-gray-500 text-xs mt-2">Click to scroll to list →</p>
         </div>
 
-        {/* Active Members Card - Clickable to navigate to ActiveMembers page */}
+        {/* Active Members Card - Also renamed to Total Salespersons per user request or combined */}
         <div 
           className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700 cursor-pointer hover:border-blue-500 transition-colors duration-200"
           onClick={() => navigate('/active-members')}
         >
-          <p className="text-gray-400 text-sm sm:text-base">Active Members</p>
+          <p className="text-gray-400 text-sm sm:text-base">Active Salespersons</p>
           <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">
-            {teamMembers.filter(m => m.status === "Active").length}
+            {stats.activeMembers}
           </h2>
-          <p className="text-blue-400 text-xs sm:text-sm mt-1">Currently working</p>
+          <p className="text-blue-400 text-xs sm:text-sm mt-1">Current team</p>
           <p className="text-gray-500 text-xs mt-2">Click to view details →</p>
         </div>
 
-        {/* Active Quotations Card - Clickable to navigate to ActiveQuotations page */}
+        {/* Active Quotations Card */}
         <div 
           className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700 cursor-pointer hover:border-yellow-500 transition-colors duration-200"
           onClick={() => navigate('/active-quotations')}
         >
           <p className="text-gray-400 text-sm sm:text-base">Active Quotations</p>
           <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">
-            {teamMembers.reduce((total, member) => total + member.currentQuotations, 0)}
+            {stats.activeQuotations}
           </h2>
           <p className="text-yellow-400 text-xs sm:text-sm mt-1">In progress</p>
           <p className="text-gray-500 text-xs mt-2">Click to view details →</p>
@@ -180,7 +173,7 @@ const TeamManagement = () => {
         {/* Avg Performance Card */}
         <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
           <p className="text-gray-400 text-sm sm:text-base">Avg Performance</p>
-          <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">Good</h2>
+          <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{stats.avgPerformance}</h2>
           <p className="text-green-400 text-xs sm:text-sm mt-1">Team average</p>
         </div>
       </div>
@@ -205,43 +198,63 @@ const TeamManagement = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700">
-              {teamMembers.map((member) => (
-                <tr key={member.id} className="hover:bg-gray-750 transition-colors duration-200">
-                  <td className="px-4 py-3">
-                    <div className="font-semibold text-white">{member.name}</div>
-                    <div className="text-sm text-gray-400">{member.email}</div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-300">{member.role}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(member.status)}`}>
-                      {member.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPerformanceColor(member.performance)}`}>
-                      {member.performance}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="text-white font-bold">{member.currentQuotations}</span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-300">{member.joinDate}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={() => handleViewProfile(member)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-1"
-                      >
-                        <FiUser className="text-xs" />
-                        View
-                      </button>
-                      <button className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200">
-                        Edit
-                      </button>
+              {loading ? (
+                <tr>
+                  <td colSpan="7" className="px-4 py-8 text-center text-gray-400">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin"></div>
+                      <p>Loading team members...</p>
                     </div>
                   </td>
                 </tr>
-              ))}
+              ) : error ? (
+                <tr>
+                  <td colSpan="7" className="px-4 py-8 text-center text-red-400">
+                    {error}
+                  </td>
+                </tr>
+              ) : teamMembers.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-4 py-8 text-center text-gray-400">
+                    No team members found
+                  </td>
+                </tr>
+              ) : (
+                teamMembers.map((member) => (
+                  <tr key={member.id} className="hover:bg-gray-750 transition-colors duration-200">
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-white">{member.name}</div>
+                      <div className="text-sm text-gray-400">{member.email}</div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-300">{member.role}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(member.status)}`}>
+                        {member.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPerformanceColor(member.performance || 'Good')}`}>
+                        {member.performance || 'Good'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-white font-bold">{member.currentQuotations || 0}</span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-300">{member.joinDate || member.created_at?.split('T')[0] || 'N/A'}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex space-x-2">
+                        <button 
+                          onClick={() => handleViewProfile(member)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200 flex items-center gap-1"
+                        >
+                          <FiUser className="text-xs" />
+                          View
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

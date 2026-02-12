@@ -221,17 +221,19 @@ import {
   FiMenu,
   FiFilePlus,
   FiX,
+  FiUser, 
 } from "react-icons/fi";
+import { logoutUser } from "../api/api";
 
 export default function AdminNavbar({ open, setOpen }) {
   const navigate = useNavigate();
 
   const menuItems = [
     { name: "Dashboard", icon: <FiHome />, path: "/admin-dashboard" },
-    { name: "All Salespersons", icon: <FiUsers />, path: "/allsalesperson" },
+    { name: "Team Management", icon: <FiUsers />, path: "/admin-team-management" },
     { name: "Quotation Requests", icon: <FiClock />, path: "/admin/pending" },
-    { name: "Approved", icon: <FiCheckCircle />, path: "/admin/approved" },
-    { name: "Rejected", icon: <FiXCircle />, path: "/admin/rejected" },
+    // { name: "Approved", icon: <FiCheckCircle />, path: "/admin/approved" },
+    // { name: "Rejected", icon: <FiXCircle />, path: "/admin/rejected" },
     {
       name: "Product Management",
       icon: <FiShield />,
@@ -242,11 +244,13 @@ export default function AdminNavbar({ open, setOpen }) {
       icon: <FiFilePlus />,
       path: "/create-quotation",
     },
+    { name: "My Profile", icon: <FiUser />, path: "/admin-profile" },
   ];
 
   const handleLogout = () => {
     localStorage.removeItem("user");
     localStorage.removeItem("role");
+    localStorage.removeItem("token");
     navigate("/");
   };
 
