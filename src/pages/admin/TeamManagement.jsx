@@ -37,7 +37,20 @@ const TeamManagement = () => {
         // Scope data to the logged-in Admin
         const scopedTeam = allTeam.filter(
           (member) => String(member.created_by_admin) === adminId
-        );
+        ).map(member => {
+          // If it's a salesperson (has manager_id), find their manager's name
+          if (member.manager_id) {
+            const manager = allTeam.find(m => String(m.id) === String(member.manager_id));
+            const managerName = manager ? manager.name : `Manager #${member.manager_id}`;
+            return { 
+              ...member, 
+              manager: managerName,
+              creatorName: managerName // Pass the exact name of manager
+            };
+          }
+          // Leave other roles (managers) unchanged as requested
+          return member;
+        });
 
         setTeamData(scopedTeam);
 

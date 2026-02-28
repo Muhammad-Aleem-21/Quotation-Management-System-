@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiX, FiUser, FiMail, FiPhone, FiMapPin, FiLock, FiBriefcase, FiAlertCircle } from 'react-icons/fi';
+import { FiX, FiUser, FiMail, FiPhone, FiMapPin, FiLock, FiBriefcase, FiAlertCircle, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import API, { createAdmin } from '../../api/api';
 
 const UserManagement = () => {
@@ -12,6 +12,7 @@ const UserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [dialog, setDialog] = useState({ show: false, title: '', message: '', type: 'success' });
   
   // Form state
   const [newUser, setNewUser] = useState({
@@ -66,14 +67,49 @@ const UserManagement = () => {
         const role = user.role || (user.roles && user.roles[0]?.name) || (user.roles && user.roles[0]) || '';
         const profile = user.profile || {};
         
-        // Reports To logic
-        let reportsTo = 'System';
+        // Reports To logic - Robust handling with ID lookup
+        let reportsTo = 'Super Admin';
+        const findByAnyId = (id) => userList.find(u => u.id.toString() === id.toString());
+
         if (role.toLowerCase() === 'salesperson') {
-          const manager = user.manager || user.creator;
-          reportsTo = manager ? (manager.name || manager.fullName) : (user.manager_id ? `Manager #${user.manager_id}` : 'Manager');
+          const mName = (() => {
+            if (typeof user.manager === 'object') return user.manager?.name;
+            if (user.manager) {
+              const found = findByAnyId(user.manager);
+              if (found) return found.name || found.fullName;
+              return user.manager;
+            }
+            return null;
+          })();
+
+          const aName = (() => {
+            if (user.created_by_admin_name) return user.created_by_admin_name;
+            if (typeof user.created_by_admin === 'object') return user.created_by_admin?.name;
+            if (user.created_by_admin) {
+              const found = findByAnyId(user.created_by_admin);
+              if (found) return found.name || found.fullName;
+              return user.created_by_admin;
+            }
+            return null;
+          })();
+          
+          if (mName && aName && mName !== aName) {
+            reportsTo = `${mName} (Admin: ${aName})`;
+          } else {
+            reportsTo = mName || aName || 'Super Admin';
+          }
         } else if (role.toLowerCase() === 'manager') {
-          const admin = user.admin || user.creator;
-          reportsTo = admin ? (admin.name || admin.fullName) : (user.admin_id ? `Admin #${user.admin_id}` : 'Administrator');
+          const aName = (() => {
+            if (user.created_by_admin_name) return user.created_by_admin_name;
+            if (typeof user.created_by_admin === 'object') return user.created_by_admin?.name;
+            if (user.created_by_admin) {
+              const found = findByAnyId(user.created_by_admin);
+              if (found) return found.name || found.fullName;
+              return user.created_by_admin;
+            }
+            return null;
+          })();
+          reportsTo = aName || 'Super Admin';
         } else if (role.toLowerCase() === 'admin') {
           reportsTo = 'Super Admin';
         }
@@ -86,8 +122,8 @@ const UserManagement = () => {
           roleRaw: role.toLowerCase(),
           creatorName: reportsTo,
           address: user.address || profile.address || 'Not Provided',
-          area: user.region || user.area || profile.region || profile.area || 'N/A',
-          contact: user.phone || user.contact || profile.phone || profile.contact || 'N/A',
+          area: user.region || user.area || user.city || profile.region || profile.area || profile.city || 'N/A',
+          contact: user.phone || user.contact || user.phone_number || profile.phone || profile.contact || profile.phone_number || 'N/A',
           bio: user.bio || profile.bio || '',
           initials: (user.name || user.fullName || 'N').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
           profileColor: getUserColor(role),
@@ -172,7 +208,12 @@ const UserManagement = () => {
 
     // Validation
     if (newUser.password !== newUser.confirmPassword) {
-      alert("Passwords do not match!");
+      setDialog({
+        show: true,
+        title: "Validation Error",
+        message: "Passwords do not match!",
+        type: "error"
+      });
       return;
     }
 
@@ -191,7 +232,12 @@ const UserManagement = () => {
       const response = await createAdmin(payload);
 
       if (response.data.success) {
-        alert(response.data.message || "Admin created successfully");
+        setDialog({
+          show: true,
+          title: "Account Created",
+          message: response.data.message || "Admin account has been created successfully.",
+          type: "success"
+        });
         setShowAddUserModal(false);
         fetchUsers();
         // Reset form
@@ -200,7 +246,12 @@ const UserManagement = () => {
     } catch (err) {
       console.error("Error creating admin:", err);
       const errorMsg = err.response?.data?.message || err.response?.data?.error || "Failed to create admin";
-      alert(errorMsg);
+      setDialog({
+        show: true,
+        title: "Creation Error",
+        message: errorMsg,
+        type: "error"
+      });
     } finally {
       setSaving(false);
     }
@@ -229,6 +280,37 @@ const UserManagement = () => {
     'North America', 'South America', 'Europe', 'Asia Pacific', 
     'Middle East', 'Africa', 'Australia', 'Central America'
   ];
+
+  // Success/Error Dialog Component
+  const SuccessErrorDialog = ({ show, title, message, type, onClose }) => {
+    if (!show) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[60] backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-gray-800 rounded-2xl border border-gray-700 w-full max-w-sm shadow-2xl overflow-hidden transform scale-100 animate-in zoom-in-95 duration-200">
+          <div className="p-8 text-center">
+            <div className={`w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center text-5xl ${
+              type === 'success' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+            }`}>
+              {type === 'success' ? <FiCheckCircle /> : <FiXCircle />}
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-2">{title}</h3>
+            <p className="text-gray-400 leading-relaxed mb-8">{message}</p>
+            <button
+              onClick={onClose}
+              className={`w-full py-3 rounded-xl font-bold text-lg transition-all shadow-lg active:scale-95 ${
+                type === 'success' 
+                  ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20' 
+                  : 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/20'
+              }`}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="p-4 sm:p-6 bg-gray-900 min-h-screen text-white">
@@ -490,6 +572,10 @@ const UserManagement = () => {
                     </span>
                   </div>
                   <div className="p-4 bg-gray-750 rounded-lg">
+                    <p className="text-sm text-gray-400">Reports To</p>
+                    <p className="font-medium text-lg text-purple-300">{selectedUser.creatorName}</p>
+                  </div>
+                  <div className="p-4 bg-gray-750 rounded-lg">
                     <p className="text-sm text-gray-400">Role</p>
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${getRoleColor(selectedUser.role)}`}>
                       {selectedUser.role}
@@ -748,6 +834,15 @@ const UserManagement = () => {
           </div>
         </div>
       )}
+
+      {/* Success/Error Dialog */}
+      <SuccessErrorDialog 
+        show={dialog.show}
+        title={dialog.title}
+        message={dialog.message}
+        type={dialog.type}
+        onClose={() => setDialog({ ...dialog, show: false })}
+      />
     </div>
   );
 };

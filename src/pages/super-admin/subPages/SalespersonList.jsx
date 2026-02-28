@@ -23,10 +23,18 @@ const SalespersonList = () => {
       setLoading(true);
       setError(null);
       const response = await getMyTeam('salesperson');
+      const managerResponse = await getMyTeam('manager');
+      const adminResponse = await getMyTeam('admin');
       
       const teamData = response.data.team || {};
       const allUsers = teamData.salespersons || response.data.users || response.data || [];
       
+      const managersData = managerResponse.data.team?.managers || managerResponse.data.users || managerResponse.data || [];
+      const adminsData = adminResponse.data.team?.admins || adminResponse.data.users || adminResponse.data || [];
+      
+      const managersList = Array.isArray(managersData) ? managersData : Object.values(managersData).flat();
+      const adminsList = Array.isArray(adminsData) ? adminsData : Object.values(adminsData).flat();
+
       // Ensure allUsers is an array for filtering
       const usersArray = Array.isArray(allUsers) ? allUsers : 
                         (typeof allUsers === 'object' ? Object.values(allUsers).flat().filter(Array.isArray).flat() : []);
@@ -52,9 +60,34 @@ const SalespersonList = () => {
           const roleName = 'Salesperson';
           const profile = user.profile || {};
           
-          // Reports To Manager logic
-          const manager = user.manager || user.creator;
-          const reportsTo = manager ? (manager.name || manager.fullName) : (user.manager_id ? `Manager #${user.manager_id}` : 'Team Manager');
+          // Reports To Manager and Admin logic - Robust handling for objects and IDs
+          const mName = (() => {
+            if (typeof user.manager === 'object') return user.manager?.name;
+            if (user.manager) {
+              const foundManager = managersList.find(m => m.id.toString() === user.manager.toString());
+              if (foundManager) return foundManager.name || foundManager.fullName;
+              return user.manager;
+            }
+            return null;
+          })();
+
+          const aName = (() => {
+            if (user.created_by_admin_name) return user.created_by_admin_name;
+            if (typeof user.created_by_admin === 'object') return user.created_by_admin?.name;
+            if (user.created_by_admin) {
+              const foundAdmin = adminsList.find(a => a.id.toString() === user.created_by_admin.toString());
+              if (foundAdmin) return foundAdmin.name || foundAdmin.fullName;
+              return user.created_by_admin;
+            }
+            return null;
+          })();
+          
+          let reportsTo = 'Super Admin';
+          if (mName && aName && mName !== aName) {
+            reportsTo = `${mName} (Admin: ${aName})`;
+          } else {
+            reportsTo = mName || aName || 'Super Admin';
+          }
 
           return {
             ...user,
@@ -63,8 +96,8 @@ const SalespersonList = () => {
             creatorName: reportsTo,
             manager: reportsTo, // For filtering consistency
             address: user.address || profile.address || 'Not Provided',
-            area: user.region || user.area || profile.region || profile.area || 'N/A',
-            contact: user.phone || user.contact || profile.phone || profile.contact || 'N/A',
+            area: user.region || user.area || user.city || profile.region || profile.area || profile.city || 'N/A',
+            contact: user.phone || user.contact || user.phone_number || profile.phone || profile.contact || profile.phone_number || 'N/A',
             bio: user.bio || profile.bio || '',
             initials: (user.name || user.fullName || 'N').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
             profileColor: getUserColor(roleName),
@@ -241,7 +274,10 @@ const SalespersonList = () => {
                         </span>
                       </div>
                       <p className="text-gray-400 text-sm mt-1 truncate max-w-[150px]">{sp.email}</p>
-                      <p className="text-gray-500 text-[10px] mt-1 uppercase tracking-wider">Manager: {sp.reportsToName || sp.manager}</p>
+                      <p className="text-blue-400/80 text-[10px] mt-1 uppercase font-semibold tracking-wider flex items-center gap-1">
+                        <FiUser className="w-3 h-3" />
+                        Reports To: {sp.creatorName}
+                      </p>
                     </div>
                   </div>
 
@@ -348,8 +384,8 @@ const SalespersonList = () => {
                       <div className="flex items-center gap-3 p-3 bg-gray-750 rounded-lg">
                         <FiUser className="w-5 h-5 text-purple-400" />
                         <div>
-                          <p className="text-sm text-gray-400">Manager</p>
-                          <p className="font-medium">{selectedSalesperson.manager}</p>
+                          <p className="text-sm text-gray-400">Reports To</p>
+                          <p className="font-medium text-purple-300">{selectedSalesperson.creatorName}</p>
                         </div>
                       </div>
                     </div>

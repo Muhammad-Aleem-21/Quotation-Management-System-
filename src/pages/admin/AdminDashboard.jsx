@@ -14,7 +14,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { FiPlus } from "react-icons/fi";
+import { FiPlus, FiCheckCircle, FiXCircle } from "react-icons/fi";
 import CreateManagerForm from "./CreateManagerForm"; // Import the form component
 
 const DashboardData = {
@@ -116,6 +116,7 @@ export default function AdminDashboard() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const [showCreateManagerForm, setShowCreateManagerForm] = useState(false);
   const [liveStats, setLiveStats] = useState({ managers: 0, salespersons: 0 });
+  const [dialog, setDialog] = useState({ show: false, title: '', message: '', type: 'success' });
 
   React.useEffect(() => {
     const fetchStats = async () => {
@@ -161,24 +162,61 @@ export default function AdminDashboard() {
         address: managerData.address,
         region: managerData.region,
         role: 'manager', 
-        team_size: Number(managerData.teamSize),
         admin_id: user.id,
       };
 
       const response = await createManager(payload);
       
       if (response.data.success) {
-        alert(response.data.message || "Manager created successfully");
+        setDialog({
+          show: true,
+          title: "Manager Created",
+          message: response.data.message || "Manager account has been created successfully.",
+          type: "success"
+        });
         setShowCreateManagerForm(false);
-        // In a real app, we'd refetch data here. 
-        // For now, since most other things are static/dummy in this dashboard, 
-        // we'll just show the success.
       }
     } catch (err) {
       console.error("Error creating manager:", err);
       const errorMsg = err.response?.data?.message || err.response?.data?.error || "Failed to create manager";
-      alert(errorMsg);
+      setDialog({
+        show: true,
+        title: "Creation Error",
+        message: errorMsg,
+        type: "error"
+      });
     }
+  };
+
+  // Success/Error Dialog Component
+  const SuccessErrorDialog = ({ show, title, message, type, onClose }) => {
+    if (!show) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[60] backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-gray-800 rounded-2xl border border-gray-700 w-full max-w-sm shadow-2xl overflow-hidden transform scale-100 animate-in zoom-in-95 duration-200">
+          <div className="p-8 text-center">
+            <div className={`w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center text-5xl ${
+              type === 'success' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+            }`}>
+              {type === 'success' ? <FiCheckCircle /> : <FiXCircle />}
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-2">{title}</h3>
+            <p className="text-gray-400 leading-relaxed mb-8">{message}</p>
+            <button
+              onClick={onClose}
+              className={`w-full py-3 rounded-xl font-bold text-lg transition-all shadow-lg active:scale-95 ${
+                type === 'success' 
+                  ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20' 
+                  : 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/20'
+              }`}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -407,6 +445,15 @@ export default function AdminDashboard() {
           onSubmit={handleCreateManager}
         />
       )}
+
+      {/* Success/Error Dialog */}
+      <SuccessErrorDialog 
+        show={dialog.show}
+        title={dialog.title}
+        message={dialog.message}
+        type={dialog.type}
+        onClose={() => setDialog({ ...dialog, show: false })}
+      />
     </div>
   );
 }

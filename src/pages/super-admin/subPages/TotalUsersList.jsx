@@ -46,27 +46,58 @@ const TotalUsersList = () => {
             roleName = typeof firstRole === 'string' ? firstRole : (firstRole.name || 'User');
           }
 
-          // Hierarchy/Creator extraction logic based on role
+          // Hierarchy/Creator extraction logic based on role - Robust handling with ID lookup
           let reportsTo = 'Super Admin';
           const rName = roleName.toLowerCase();
+          const findByAnyId = (id) => userList.find(u => u.id.toString() === id.toString());
           
           if (rName === 'salesperson') {
-            // Salesperson reports to Manager
-            const manager = user.manager || user.creator;
-            reportsTo = manager ? (manager.name || manager.fullName) : (user.manager_id ? `Manager #${user.manager_id}` : 'Team Manager');
+            const mName = (() => {
+              if (typeof user.manager === 'object') return user.manager?.name;
+              if (user.manager) {
+                const found = findByAnyId(user.manager);
+                if (found) return found.name || found.fullName;
+                return user.manager;
+              }
+              return null;
+            })();
+
+            const aName = (() => {
+              if (user.created_by_admin_name) return user.created_by_admin_name;
+              if (typeof user.created_by_admin === 'object') return user.created_by_admin?.name;
+              if (user.created_by_admin) {
+                const found = findByAnyId(user.created_by_admin);
+                if (found) return found.name || found.fullName;
+                return user.created_by_admin;
+              }
+              return null;
+            })();
+            
+            if (mName && aName && mName !== aName) {
+              reportsTo = `${mName} (Admin: ${aName})`;
+            } else {
+              reportsTo = mName || aName || 'Super Admin';
+            }
           } else if (rName === 'manager') {
-            // Manager reports to Admin
-            const admin = user.admin || user.creator;
-            reportsTo = admin ? (admin.name || admin.fullName) : (user.admin_id ? `Admin #${user.admin_id}` : 'Operations Admin');
+            const aName = (() => {
+              if (user.created_by_admin_name) return user.created_by_admin_name;
+              if (typeof user.created_by_admin === 'object') return user.created_by_admin?.name;
+              if (user.created_by_admin) {
+                const found = findByAnyId(user.created_by_admin);
+                if (found) return found.name || found.fullName;
+                return user.created_by_admin;
+              }
+              return null;
+            })();
+            reportsTo = aName || 'Super Admin';
           } else if (rName === 'admin') {
-            // Admin always reports to Super Admin
             reportsTo = 'Super Admin';
           }
 
           // Nested profile data extraction
           const profile = user.profile || {};
-          const area = user.region || user.area || profile.region || profile.area || 'N/A';
-          const contact = user.phone || user.contact || profile.phone || profile.contact || 'N/A';
+          const area = user.region || user.area || user.city || profile.region || profile.area || profile.city || 'N/A';
+          const contact = user.phone || user.contact || user.phone_number || profile.phone || profile.contact || profile.phone_number || 'N/A';
 
           return {
             ...user,

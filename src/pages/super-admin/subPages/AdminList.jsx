@@ -246,6 +246,10 @@ const AdminList = () => {
                       <FiMapPin className="w-4 h-4" />
                       <span className="text-sm truncate">{admin.area}</span>
                     </div>
+                    <div className="flex items-center gap-2 text-purple-400/80">
+                      <FiUser className="w-4 h-4" />
+                      <span className="text-xs font-medium">Reports To: {admin.creatorName}</span>
+                    </div>
                   </div>
 
                   {/* Admin Stats */}
@@ -340,8 +344,15 @@ const AdminList = () => {
                       <div className="flex items-center gap-3 p-3 bg-gray-750 rounded-lg">
                         <FiUser className="w-5 h-5 text-purple-400" />
                         <div>
+                          <p className="text-sm text-gray-400">Reports To</p>
+                          <p className="font-medium text-purple-300">{selectedAdmin.creatorName}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 p-3 bg-gray-750 rounded-lg">
+                        <FiUser className="w-5 h-5 text-blue-400" />
+                        <div>
                           <p className="text-sm text-gray-400">Admin ID</p>
-                          <p className="font-medium">{selectedAdmin.id}</p>
+                          <p className="font-medium text-blue-300">{selectedAdmin.id}</p>
                         </div>
                       </div>
                     </div>

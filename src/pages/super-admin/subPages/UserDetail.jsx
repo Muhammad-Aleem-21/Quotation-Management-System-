@@ -11,11 +11,65 @@ const UserDetail = () => {
     const [loading, setLoading] = useState(!location.state?.userData);
     const [error, setError] = useState(null);
 
+    const normalizeUserData = (userData) => {
+        // Improve role detection
+        let roleName = userData.role || (userData.roles?.[0]?.name || userData.roles?.[0]);
+        
+        if (!roleName) {
+            if (userData.manager_id !== null && userData.manager_id !== undefined) {
+                roleName = 'Salesperson';
+            } else if (userData.created_by_admin) {
+                roleName = 'Manager';
+            } else {
+                roleName = 'User';
+            }
+        }
+        
+        userData.role = roleName;
+
+        // Hierarchy/Creator extraction logic based on role
+        let reportsTo = 'N/A';
+        const rName = roleName.toLowerCase();
+        
+        if (rName === 'salesperson') {
+            const mName = typeof userData.manager === 'object' ? userData.manager?.name : userData.manager;
+            const aName = userData.created_by_admin_name || (typeof userData.created_by_admin === 'object' ? userData.created_by_admin?.name : userData.created_by_admin);
+            
+            if (mName && aName && mName !== aName) {
+                reportsTo = `${mName} (Admin: ${aName})`;
+            } else {
+                reportsTo = mName || aName || 'Super Admin';
+            }
+        } else if (rName === 'manager') {
+            reportsTo = userData.created_by_admin_name || (typeof userData.created_by_admin === 'object' ? userData.created_by_admin?.name : userData.created_by_admin) || 'Super Admin';
+        } else if (rName === 'admin') {
+            reportsTo = 'Super Admin';
+        }
+        userData.creatorName = reportsTo;
+        
+        // Nested profile data extraction
+        const profile = userData.profile || {};
+        
+        // Area and Contact normalization - Robust fallbacks
+        userData.displayArea = userData.region || userData.area || userData.city || profile.region || profile.area || profile.city || 'N/A';
+        userData.displayContact = userData.phone || userData.contact || userData.phone_number || profile.phone || profile.contact || profile.phone_number || 'N/A';
+        userData.displayAddress = userData.address || profile.address || 'No address provided in system.';
+        userData.displayBio = userData.bio || profile.bio || '';
+
+        // For backward compatibility with other components
+        userData.area = userData.displayArea;
+        userData.contact = userData.displayContact;
+
+        return userData;
+    };
+
     useEffect(() => {
         if (!user) {
             fetchUserDetails();
         } else {
-             // Even if we have user from state, we might want to refresh or just settle
+             // If we have user from state, we still need to normalize it
+             // especially for fields like creatorName which might not be in state
+             setUser(prev => normalizeUserData({...prev}));
              setLoading(false);
         }
     }, [id]);
@@ -32,8 +86,6 @@ const UserDetail = () => {
             response = { data: { user: {} } };
             } catch (specificErr) {
                console.warn("Specific user endpoint failed, trying fallback list...", specificErr);
-               // Fallback to getAllUsers if specific endpoint fails (e.g. 500)
-               // const listResponse = await getAllUsers();
                const listResponse = { data: { users: [] } };
                const list = listResponse.data.users || listResponse.data || [];
                const found = Array.isArray(list) ? list.find(u => u.id.toString() === id.toString()) : null;
@@ -47,42 +99,11 @@ const UserDetail = () => {
 
             if (response.data && (response.data.user || response.data.data)) {
                 let userData = response.data.user || response.data.data;
+                userData = normalizeUserData(userData);
                 
-                // Add calculation/normalization like in the list if needed
-                const roleName = userData.role || (userData.roles?.[0]?.name || userData.roles?.[0] || 'User');
-                userData.role = roleName;
-
-                // Hierarchy/Creator extraction logic based on role
-                let reportsTo = 'Super Admin';
-                const rName = roleName.toLowerCase();
-                
-                if (rName === 'salesperson') {
-                    const manager = userData.manager || userData.creator;
-                    reportsTo = manager ? (manager.name || manager.fullName) : (userData.manager_id ? `Manager #${userData.manager_id}` : 'Team Manager');
-                } else if (rName === 'manager') {
-                    const admin = userData.admin || userData.creator;
-                    reportsTo = admin ? (admin.name || admin.fullName) : (userData.admin_id ? `Admin #${userData.admin_id}` : 'Operations Admin');
-                } else if (rName === 'admin') {
-                    reportsTo = 'Super Admin';
-                }
-                userData.reportsToName = reportsTo;
-                
-                // Nested profile data extraction
-                const profile = userData.profile || {};
-                
-                // Area and Contact normalization
-                userData.displayArea = userData.region || userData.area || profile.region || profile.area || 'N/A';
-                userData.displayContact = userData.phone || userData.contact || profile.phone || profile.contact || 'N/A';
-                userData.displayAddress = userData.address || profile.address || 'No address provided in system.';
-                userData.displayBio = userData.bio || profile.bio || '';
-                
-                // Enhance stats for Salespersons
-                if (rName === 'salesperson') {
+                // Enhance stats for Salespersons (extra step)
+                if (userData.role.toLowerCase() === 'salesperson') {
                     try {
-                        // const [appRes, rejRes] = await Promise.allSettled([
-                        //     API.get(`/quotations/${id}/approve`),
-                        //     API.get(`/quotations/${id}/reject`)
-                        // ]);
                         const appRes = { status: 'rejected' };
                         const rejRes = { status: 'rejected' };
 
@@ -213,10 +234,12 @@ const UserDetail = () => {
                                 <p className="text-[10px] text-gray-500 uppercase font-black mb-1">Position / Title</p>
                                 <p className="font-medium text-blue-300">{roleName}</p>
                             </div>
-                            <div className="p-4 bg-gray-900/50 rounded-2xl border border-gray-700 hover:border-blue-500/30 transition-colors">
-                                <p className="text-[10px] text-gray-500 uppercase font-black mb-1">Reports To</p>
-                                <p className="font-medium text-purple-300">{user.reportsToName}</p>
-                            </div>
+                            {roleName?.toLowerCase() !== 'manager' && (
+                                <div className="p-4 bg-gray-900/50 rounded-2xl border border-gray-700 hover:border-blue-500/30 transition-colors">
+                                    <p className="text-[10px] text-gray-500 uppercase font-black mb-1">Reports To</p>
+                                    <p className="font-medium text-purple-300">{user.creatorName}</p>
+                                </div>
+                            )}
                             <div className="p-4 bg-gray-900/50 rounded-2xl border border-gray-700 hover:border-blue-500/30 transition-colors">
                                 <p className="text-[10px] text-gray-500 uppercase font-black mb-1">Member Since</p>
                                 <p className="font-medium text-green-300">{user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</p>

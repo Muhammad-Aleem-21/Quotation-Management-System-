@@ -142,12 +142,12 @@ const ManagerProfileModal = ({ manager, onClose }) => {
                 </h3>
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-3">
-                    <div>
+                    {/* <div>
                       <p className="text-sm text-gray-400">Total Team Size</p>
                       <p className="text-2xl font-bold text-white">
                         {manager.teamSize} members
                       </p>
-                    </div>
+                    </div> */}
                     <div className="text-3xl">👥</div>
                   </div>
 

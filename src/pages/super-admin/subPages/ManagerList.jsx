@@ -23,10 +23,14 @@ const ManagerList = () => {
       setLoading(true);
       setError(null);
       const response = await getMyTeam('manager');
+      const adminResponse = await getMyTeam('admin');
       
       const teamData = response.data.team || {};
       const allUsers = teamData.managers || response.data.users || response.data || [];
       
+      const adminData = adminResponse.data.team?.admins || adminResponse.data.users || adminResponse.data || [];
+      const adminsList = Array.isArray(adminData) ? adminData : Object.values(adminData).flat();
+
       // Ensure allUsers is an array for filtering
       const usersArray = Array.isArray(allUsers) ? allUsers : 
                         (typeof allUsers === 'object' ? Object.values(allUsers).flat().filter(Array.isArray).flat() : []);
@@ -53,17 +57,24 @@ const ManagerList = () => {
           const profile = user.profile || {};
           
           // Reports To Admin logic
-          const admin = user.admin || user.creator;
-          const reportsTo = admin ? (admin.name || admin.fullName) : (user.admin_id ? `Admin #${user.admin_id}` : 'Operations Admin');
-
+          const reportsTo = user.created_by_admin || 'N/A';
           return {
             ...user,
             fullName: user.name || user.fullName || 'N/A',
             role: roleName,
-            creatorName: reportsTo,
+            creatorName: (() => {
+              if (user.created_by_admin_name) return user.created_by_admin_name;
+              if (typeof user.created_by_admin === 'object' && user.created_by_admin?.name) return user.created_by_admin.name;
+              const adminId = user.created_by_admin;
+              if (adminId) {
+                const foundAdmin = adminsList.find(a => a.id.toString() === adminId.toString());
+                if (foundAdmin) return foundAdmin.name || foundAdmin.fullName;
+              }
+              return 'Super Admin';
+            })(),
             address: user.address || profile.address || 'Not Provided',
-            area: user.region || user.area || profile.region || profile.area || 'N/A',
-            contact: user.phone || user.contact || profile.phone || profile.contact || 'N/A',
+            area: user.region || user.area || user.city || profile.region || profile.area || profile.city || 'N/A',
+            contact: user.phone || user.contact || user.phone_number || profile.phone || profile.contact || profile.phone_number || 'N/A',
             bio: user.bio || profile.bio || '',
             initials: (user.name || user.fullName || 'N').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase(),
             profileColor: getUserColor(roleName),
@@ -166,17 +177,12 @@ const ManagerList = () => {
 
           {/* Stats Summary */}
           {!loading && !error && (
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
               <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
                 <p className="text-gray-400 text-sm">Total Managers</p>
                 <p className="text-2xl font-bold text-yellow-400">{managers.length}</p>
               </div>
-              <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-                <p className="text-gray-400 text-sm">Total Team Size</p>
-                <p className="text-2xl font-bold text-green-400">
-                  {managers.reduce((sum, manager) => sum + (manager.teamSize || 0), 0)}
-                </p>
-              </div>
+
               <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
                 <p className="text-gray-400 text-sm">Total Quotations</p>
                 <p className="text-2xl font-bold text-blue-400">
@@ -256,6 +262,10 @@ const ManagerList = () => {
                     <div className="flex items-center gap-2 text-gray-400">
                       <FiUsers className="w-4 h-4" />
                       <span className="text-sm">{manager.teamSize} team members</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-yellow-400/80">
+                      <FiUser className="w-4 h-4" />
+                      <span className="text-xs font-medium">Reports To: {manager.creatorName}</span>
                     </div>
                   </div>
 
@@ -363,14 +373,21 @@ const ManagerList = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-3 p-3 bg-gray-750 rounded-lg">
-                        <FiUsers className="w-5 h-5 text-purple-400" />
+                        <FiUser className="w-5 h-5 text-purple-400" />
+                        <div>
+                          <p className="text-sm text-gray-400">Reports To</p>
+                          <p className="font-medium text-purple-300">{selectedManager.creatorName}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 p-3 bg-gray-750 rounded-lg">
+                        <FiUsers className="w-5 h-5 text-blue-400" />
                         <div>
                           <p className="text-sm text-gray-400">Team Size</p>
                           <p className="font-medium">{selectedManager.teamSize} members</p>
                         </div>
-                      </div>
-                    </div>
                   </div>
+                </div>
+              </div>
 
                   <div>
                     <h3 className="text-lg font-semibold mb-4 text-gray-300">Performance Statistics</h3>

@@ -9,14 +9,12 @@ const CreateManagerForm = ({ onClose, onSubmit }) => {
     region: "",
     role: "",
     address: "",
-    teamSize: "",
     password: "",
     confirmPassword: "",
   });
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [searchCity, setSearchCity] = useState("");
 
   const roles = [
     "Senior Manager",
@@ -42,11 +40,6 @@ const CreateManagerForm = ({ onClose, onSubmit }) => {
     "Skardu", "Chitral", "Swat", "Naran", "Kaghan", "Hunza", "Kalam", "Malam Jabba", "Murree", "Nathia Gali"
   ].sort();
 
-  const filteredCities = searchCity
-    ? pakistanCities.filter(city => 
-        city.toLowerCase().includes(searchCity.toLowerCase())
-      )
-    : pakistanCities;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -76,11 +69,7 @@ const CreateManagerForm = ({ onClose, onSubmit }) => {
     if (!formData.region) newErrors.region = "Region is required";
     if (!formData.role) newErrors.role = "Role is required";
     if (!formData.address.trim()) newErrors.address = "Address is required";
-    if (!formData.teamSize) {
-      newErrors.teamSize = "Team size is required";
-    } else if (parseInt(formData.teamSize) < 1) {
-      newErrors.teamSize = "Team size must be at least 1";
-    }
+    if (!formData.address.trim()) newErrors.address = "Address is required";
     if (!formData.password) {
       newErrors.password = "Password is required";
     } else if (formData.password.length < 6) {
@@ -207,23 +196,6 @@ const CreateManagerForm = ({ onClose, onSubmit }) => {
                   <FiMapPin className="text-orange-400" />
                   Region/City *
                 </label>
-                <div className="relative">
-                  {/* Search input for cities */}
-                  <div className="mb-2">
-                    <input
-                      type="text"
-                      value={searchCity}
-                      onChange={(e) => setSearchCity(e.target.value)}
-                      placeholder="Search for a city..."
-                      className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-sm"
-                    />
-                    {searchCity && filteredCities.length > 0 && (
-                      <p className="text-xs text-gray-400 mt-1">
-                        Found {filteredCities.length} cities
-                      </p>
-                    )}
-                  </div>
-                  
                   <select
                     name="region"
                     value={formData.region}
@@ -232,7 +204,7 @@ const CreateManagerForm = ({ onClose, onSubmit }) => {
                     className={`w-full px-4 py-3 bg-gray-700 border ${errors.region ? 'border-red-500' : 'border-gray-600'} rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 appearance-none disabled:opacity-50`}
                   >
                     <option value="">Select Region/City</option>
-                    {filteredCities.map((city) => (
+                    {pakistanCities.map((city) => (
                       <option key={city} value={city}>
                         {city}
                       </option>
@@ -242,17 +214,10 @@ const CreateManagerForm = ({ onClose, onSubmit }) => {
                   {errors.region && (
                     <p className="text-red-400 text-sm mt-1">{errors.region}</p>
                   )}
-                  {searchCity && filteredCities.length === 0 && (
-                    <p className="text-yellow-400 text-sm mt-1">
-                      No cities found. Try a different search term.
-                    </p>
-                  )}
                 </div>
               </div>
-            </div>
 
-            {/* Role and Team Size Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Role *
@@ -273,25 +238,6 @@ const CreateManagerForm = ({ onClose, onSubmit }) => {
                 </select>
                 {errors.role && (
                   <p className="text-red-400 text-sm mt-1">{errors.role}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Team Size *
-                </label>
-                <input
-                  type="number"
-                  name="teamSize"
-                  value={formData.teamSize}
-                  onChange={handleChange}
-                  placeholder="Number of team members"
-                  min="1"
-                  disabled={isSubmitting}
-                  className={`w-full px-4 py-3 bg-gray-700 border ${errors.teamSize ? 'border-red-500' : 'border-gray-600'} rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 disabled:opacity-50`}
-                />
-                {errors.teamSize && (
-                  <p className="text-red-400 text-sm mt-1">{errors.teamSize}</p>
                 )}
               </div>
             </div>
