@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AdminNavbar from "../../../components/AdminNavbar";
 import { FiSearch, FiX, FiFileText, FiUser, FiCheck, FiXCircle, FiClock } from 'react-icons/fi';
+import API, { getQuotations, getTeamStats, generateQuotationPdf } from '../../../api/api';
 
 const TotalQuotations = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -14,177 +15,135 @@ const TotalQuotations = () => {
   });
   const navigate = useNavigate();
 
-  // Sample data for all quotations under the manager
-  const allQuotations = useMemo(() => [
-    {
-      id: 'QT-1001',
-      salesperson: 'John D.',
-      salespersonId: 'SP-001',
-      customer: 'TechCorp Solutions',
-      customerEmail: 'contact@techcorp.com',
-      service: 'Website Redesign',
-      date: '2024-01-20',
-      amount: '$15,200',
-      status: 'approved',
-      approvedDate: '2024-01-21',
-      approvedBy: 'Manager A',
-      daysSince: 5
-    },
-    {
-      id: 'QT-1002',
-      salesperson: 'Sarah M.',
-      salespersonId: 'SP-002',
-      customer: 'Global Logistics Inc',
-      customerEmail: 'procurement@globallogistics.com',
-      service: 'CRM Implementation',
-      date: '2024-01-18',
-      amount: '$8,500',
-      status: 'pending',
-      submittedDate: '2024-01-18',
-      daysSince: 7
-    },
-    {
-      id: 'QT-1003',
-      salesperson: 'Mike R.',
-      salespersonId: 'SP-003',
-      customer: 'MediCare Hospital',
-      customerEmail: 'it@medicarehospital.com',
-      service: 'Medical Equipment',
-      date: '2024-01-15',
-      amount: '$22,000',
-      status: 'rejected',
-      rejectedDate: '2024-01-16',
-      rejectedBy: 'Manager B',
-      reason: 'Budget too high',
-      daysSince: 10
-    },
-    {
-      id: 'QT-1004',
-      salesperson: 'Emily T.',
-      salespersonId: 'SP-004',
-      customer: 'EduTech Innovations',
-      customerEmail: 'admin@edutech.com',
-      service: 'LMS Platform',
-      date: '2024-01-12',
-      amount: '$12,500',
-      status: 'approved',
-      approvedDate: '2024-01-13',
-      approvedBy: 'Manager C',
-      daysSince: 13
-    },
-    {
-      id: 'QT-1005',
-      salesperson: 'David L.',
-      salespersonId: 'SP-005',
-      customer: 'Green Energy Corp',
-      customerEmail: 'sales@greenenergy.com',
-      service: 'Solar Panel Installation',
-      date: '2024-01-10',
-      amount: '$18,300',
-      status: 'pending',
-      submittedDate: '2024-01-10',
-      daysSince: 15
-    },
-    {
-      id: 'QT-1006',
-      salesperson: 'John D.',
-      salespersonId: 'SP-001',
-      customer: 'Retail Chain Stores',
-      customerEmail: 'it@retailchain.com',
-      service: 'POS System Upgrade',
-      date: '2024-01-08',
-      amount: '$30,000',
-      status: 'approved',
-      approvedDate: '2024-01-09',
-      approvedBy: 'Manager A',
-      daysSince: 17
-    },
-    {
-      id: 'QT-1007',
-      salesperson: 'Sarah M.',
-      salespersonId: 'SP-002',
-      customer: 'Food Delivery Network',
-      customerEmail: 'tech@foodnetwork.com',
-      service: 'Mobile App Development',
-      date: '2024-01-05',
-      amount: '$25,000',
-      status: 'approved',
-      approvedDate: '2024-01-06',
-      approvedBy: 'Manager B',
-      daysSince: 20
-    },
-    {
-      id: 'QT-1008',
-      salesperson: 'Mike R.',
-      salespersonId: 'SP-003',
-      customer: 'Smart Home Solutions',
-      customerEmail: 'info@smarthome.com',
-      service: 'IoT Integration',
-      date: '2024-01-02',
-      amount: '$14,800',
-      status: 'rejected',
-      rejectedDate: '2024-01-03',
-      rejectedBy: 'Manager A',
-      reason: 'Requirements mismatch',
-      daysSince: 23
-    },
-    {
-      id: 'QT-1009',
-      salesperson: 'Emily T.',
-      salespersonId: 'SP-004',
-      customer: 'Finance Solutions Ltd',
-      customerEmail: 'info@finance.com',
-      service: 'Financial Dashboard',
-      date: '2023-12-28',
-      amount: '$9,500',
-      status: 'approved',
-      approvedDate: '2023-12-29',
-      approvedBy: 'Manager C',
-      daysSince: 27
-    },
-    {
-      id: 'QT-1010',
-      salesperson: 'David L.',
-      salespersonId: 'SP-005',
-      customer: 'Manufacturing Corp',
-      customerEmail: 'purchase@manufacturing.com',
-      service: 'Inventory System',
-      date: '2023-12-25',
-      amount: '$16,800',
-      status: 'pending',
-      submittedDate: '2023-12-25',
-      daysSince: 30
-    },
-    {
-      id: 'QT-1011',
-      salesperson: 'John D.',
-      salespersonId: 'SP-001',
-      customer: 'Healthcare Plus',
-      customerEmail: 'admin@healthcareplus.com',
-      service: 'Patient Management',
-      date: '2023-12-20',
-      amount: '$21,300',
-      status: 'approved',
-      approvedDate: '2023-12-21',
-      approvedBy: 'Manager A',
-      daysSince: 35
-    },
-    {
-      id: 'QT-1012',
-      salesperson: 'Sarah M.',
-      salespersonId: 'SP-002',
-      customer: 'E-commerce Store',
-      customerEmail: 'support@estore.com',
-      service: 'Online Platform',
-      date: '2023-12-15',
-      amount: '$11,200',
-      status: 'rejected',
-      rejectedDate: '2023-12-16',
-      rejectedBy: 'Manager B',
-      reason: 'Technical limitations',
-      daysSince: 40
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [quotations, setQuotations] = useState([]);
+  
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userId = String(user.id || "");
+  const userRole = (user.role || "").toLowerCase();
+
+  // Modal States
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedQuotation, setSelectedQuotation] = useState(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(null);
+
+  // Action States
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [selectedQuoteId, setSelectedQuoteId] = useState(null);
+  const [rejecting, setRejecting] = useState(false);
+
+  // Safe access helper
+  const getVal = (val, field) => {
+    if (!val) return 'N/A';
+    if (typeof val === 'object') return val[field] || 'N/A';
+    return val;
+  };
+
+  const handleViewPdf = async (id) => {
+    try {
+      setDownloadingPdf(id);
+      const response = await generateQuotationPdf(id);
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error("Error viewing PDF:", err);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setDownloadingPdf(null);
     }
-  ], []);
+  };
+
+  const handleApprove = async (id) => {
+    if (window.confirm("Are you sure you want to approve this quotation?")) {
+      try {
+        const res = await API.post(`/quotations/${id}/approve`);
+        if (res.data.success) {
+          alert(`Quotation ${id} has been approved!`);
+          fetchQuotations();
+        }
+      } catch (err) {
+        console.error("Error approving quotation:", err);
+        alert("Failed to approve quotation");
+      }
+    }
+  };
+
+  const handleReject = (id) => {
+    setSelectedQuoteId(id);
+    setRejectionReason("");
+    setShowRejectModal(true);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectionReason.trim()) {
+      alert("Please provide a reason for rejection.");
+      return;
+    }
+
+    try {
+      setRejecting(true);
+      const res = await API.post(`/quotations/${selectedQuoteId}/reject`, { 
+        rejection_reason: rejectionReason 
+      });
+      
+      if (res.data.success) {
+        alert(`Quotation ${selectedQuoteId} has been rejected.`);
+        setShowRejectModal(false);
+        fetchQuotations();
+      }
+    } catch (err) {
+      console.error("Error rejecting quotation:", err);
+      alert("Failed to reject quotation. Please try again.");
+    } finally {
+      setRejecting(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchQuotations();
+  }, []);
+
+  const fetchQuotations = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [quotesRes, statsRes] = await Promise.all([
+        getQuotations(),
+        getTeamStats()
+      ]);
+
+      if (quotesRes.data && statsRes.data) {
+        const allQuotes = quotesRes.data.data || quotesRes.data.quotations || quotesRes.data || [];
+        
+        if (userRole === 'superadmin') {
+          setQuotations(allQuotes);
+        } else {
+          // Filter for Admin: only those in their branch
+          const allTeam = statsRes.data.dashboard_stats?.my_team || [];
+          const adminId = String(user.id);
+          const branchUserIds = allTeam
+            .filter(member => String(member.created_by_admin) === adminId || String(member.id) === adminId)
+            .map(member => String(member.id));
+
+          const scopedQuotes = allQuotes.filter(quote => {
+            const creatorId = String(quote.user_id || quote.salesperson_id || quote.user?.id || "");
+            return branchUserIds.includes(creatorId);
+          });
+          setQuotations(scopedQuotes);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching quotations:", err);
+      setError("Failed to load quotations");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const allQuotations = quotations;
 
   // Get unique salespersons for filter
   const salespersons = useMemo(() => {
@@ -203,11 +162,11 @@ const TotalQuotations = () => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(quote =>
-        quote.customer.toLowerCase().includes(query) ||
-        quote.id.toLowerCase().includes(query) ||
-        quote.service.toLowerCase().includes(query) ||
-        quote.salesperson.toLowerCase().includes(query) ||
-        quote.customerEmail.toLowerCase().includes(query)
+        (quote.client_name || quote.customer || "").toLowerCase().includes(query) ||
+        String(quote.id).toLowerCase().includes(query) ||
+        (quote.service_name || quote.service || "").toLowerCase().includes(query) ||
+        (quote.user?.name || quote.salesperson || "").toLowerCase().includes(query) ||
+        (quote.client_email || quote.customerEmail || "").toLowerCase().includes(query)
       );
     }
     
@@ -230,8 +189,8 @@ const TotalQuotations = () => {
           comparison = new Date(b.date) - new Date(a.date);
           break;
         case 'amount':
-          comparison = parseFloat(b.amount.replace('$', '').replace(',', '')) - 
-                     parseFloat(a.amount.replace('$', '').replace(',', ''));
+          comparison = parseFloat(String(b.final_amount || b.total_amount || 0).replace('$', '').replace(',', '')) - 
+                       parseFloat(String(a.final_amount || a.total_amount || 0).replace('$', '').replace(',', ''));
           break;
         case 'salesperson':
           comparison = a.salesperson.localeCompare(b.salesperson);
@@ -308,10 +267,10 @@ const TotalQuotations = () => {
   // Summary stats
   const summaryStats = useMemo(() => {
     const total = allQuotations.length;
-    const approved = allQuotations.filter(q => q.status === 'approved').length;
-    const pending = allQuotations.filter(q => q.status === 'pending').length;
-    const rejected = allQuotations.filter(q => q.status === 'rejected').length;
-    const totalAmount = allQuotations.reduce((sum, q) => sum + parseFloat(q.amount.replace('$', '').replace(',', '')), 0);
+    const approved = allQuotations.filter(q => (q.status || "").toLowerCase() === 'approved' || (q.status || "").toLowerCase() === 'accepted').length;
+    const pending = allQuotations.filter(q => (q.status || "").toLowerCase() === 'pending' || (q.status || "").toLowerCase() === 'submitted').length;
+    const rejected = allQuotations.filter(q => (q.status || "").toLowerCase() === 'rejected').length;
+    const totalAmount = allQuotations.reduce((sum, q) => sum + parseFloat(q.final_amount || q.total_amount || 0), 0);
     
     return {
       total,
@@ -329,33 +288,45 @@ const TotalQuotations = () => {
       
       {/* Main Content */}
       <div className={`transition-all duration-300 lg:ml-64 lg:-mt-135 ${sidebarOpen ? 'overflow-hidden' : ''}`}>
-        {/* <div className={`transition-all duration-300 ${sidebarOpen ? 'ml-64' : 'ml-0'} lg:ml-60 mt-14 lg:mt-135`}> */}
-        {/* Content Container */}
-        {/* Mobile Top Spacer */}
         <div className="h-16 lg:h-0"></div>
         <div className={`p-4 sm:p-6 ${sidebarOpen ? 'overflow-hidden' : ''}`}>
-          <div className={`p-4 sm:p-6 ${sidebarOpen ? 'overflow-hidden' : ''}`}>
-            {/* Header */}
-            <div className="mb-6 flex justify-between items-start">
-                
-                {/* Left Text */}
-                <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold">Total Quotations</h1>
-                  <p className="text-gray-400 mt-1">
-                    total quotations managed by you and your team
-                  </p>
-                </div>
-
-                {/* Right Button */}
-                <button 
-                onClick={() => navigate(-1)}
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-                >
-                ← Back
-                </button>
-
+          
+          {loading ? (
+            <div className="flex flex-col items-center justify-center min-h-[400px]">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+              <p className="text-gray-400">Loading quotations...</p>
             </div>
-          </div>
+          ) : error ? (
+            <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-6 text-center">
+              <p className="text-red-400 mb-4">{error}</p>
+              <button 
+                onClick={fetchQuotations}
+                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Header */}
+              <div className="mb-6 flex justify-between items-start">
+                  
+                  {/* Left Text */}
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl font-bold">Total Quotations</h1>
+                    <p className="text-gray-400 mt-1">
+                      {userRole === 'superadmin' ? 'all quotations in the system' : 'total quotations managed by you and your team'}
+                    </p>
+                  </div>
+
+                  {/* Right Button */}
+                  <button 
+                  onClick={() => navigate(-1)}
+                  className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+                  >
+                  ← Back
+                  </button>
+              </div>
 
           {/* Summary Stats */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -546,10 +517,9 @@ const TotalQuotations = () => {
                 {/* Desktop Headers */}
                 <thead className="bg-gray-700 hidden sm:table-header-group">
                   <tr>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Quotation ID</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Customer</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Service</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">ID</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Customer</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Date</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Amount</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Status</th>
@@ -576,42 +546,33 @@ const TotalQuotations = () => {
                             <div className="flex justify-between items-start">
                               <div>
                                 <span className="font-bold text-blue-400">{quote.id}</span>
-                                <h3 className="font-semibold text-white mt-1">{quote.customer}</h3>
-                                <p className="text-gray-400 text-sm">{quote.customerEmail}</p>
+                                <h3 className="font-semibold text-white mt-1">{getVal(quote.client || quote.customer, 'name') || quote.client_name || 'N/A'}</h3>
+                                <p className="text-gray-400 text-sm">{getVal(quote.client || quote.customer, 'email') || quote.client_email || 'N/A'}</p>
                               </div>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(quote.status)} flex items-center gap-1`}>
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getStatusColor(quote.status)} flex items-center gap-1`}>
                                 {getStatusIcon(quote.status)}
-                                {quote.status.charAt(0).toUpperCase() + quote.status.slice(1)}
+                                {quote.status}
                               </span>
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-gray-400 text-xs">Service</p>
-                                <p className="text-green-400 text-sm">{quote.service}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-400 text-xs">Amount</p>
-                                <p className="font-bold text-white text-sm">{quote.amount}</p>
-                              </div>
+                            <div className="flex items-center gap-2">
+                              <FiUser className="text-purple-300 text-xs" />
+                              <p className="text-purple-300 text-sm font-medium">{getVal(quote.user || quote.salesperson, 'name')}</p>
                             </div>
-                            
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-gray-400 text-xs">Salesperson</p>
-                                <div className="flex items-center gap-2">
-                                  <FiUser className="text-purple-300 text-xs" />
-                                  <p className="text-purple-300 text-sm font-medium">{quote.salesperson}</p>
-                                </div>
-                              </div>
-                              <div>
-                                <p className="text-gray-400 text-xs">Date</p>
-                                <p className="text-gray-300 text-sm">{quote.date}</p>
-                              </div>
+
+                            <div className="flex justify-between items-center text-sm">
+                              <p className="font-bold text-white text-sm">Rs. {parseFloat(quote.final_amount || quote.total_amount || 0).toLocaleString()}</p>
+                              <p className="text-gray-400">{quote.quotation_date || quote.created_at?.split('T')[0]}</p>
                             </div>
                             
                             <div className="pt-2">
-                              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-medium transition-colors">
+                              <button 
+                                onClick={() => {
+                                  setSelectedQuotation(quote);
+                                  setShowDetailsModal(true);
+                                }}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-medium transition-colors"
+                              >
                                 View Details
                               </button>
                             </div>
@@ -622,39 +583,55 @@ const TotalQuotations = () => {
                       {/* Desktop/Tablet View - Table Layout */}
                       <tr key={`desktop-${quote.id}`} className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <FiFileText className="text-blue-400" />
-                            <span className="font-bold text-blue-400 text-sm">{quote.id}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="font-semibold text-white text-sm">{quote.customer}</div>
-                          <div className="text-xs text-gray-400">{quote.customerEmail}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-green-400 font-medium text-sm">{quote.service}</span>
+                          <span className="font-bold text-blue-400 text-sm">#{quote.id}</span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <FiUser className="text-purple-300" />
                             <div>
-                              <div className="text-purple-300 text-sm">{quote.salesperson}</div>
-                              <div className="text-xs text-gray-400">{quote.salespersonId}</div>
+                                <div className="text-purple-300 text-sm font-medium">{getVal(quote.user || quote.salesperson, 'name')}</div>
+                                <div className="text-xs text-gray-400 font-mono">ID: #{quote.user_id || quote.salesperson_id || (typeof quote.user === 'object' ? quote.user.id : '')}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-gray-300 text-sm">{quote.date}</td>
-                        <td className="px-4 py-3 font-bold text-white text-sm">{quote.amount}</td>
                         <td className="px-4 py-3">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(quote.status)} flex items-center gap-1 w-fit`}>
+                          <div className="font-semibold text-white text-sm">{getVal(quote.client || quote.customer, 'name') || quote.client_name || 'N/A'}</div>
+                          <div className="text-xs text-gray-400 truncate max-w-[150px]">{getVal(quote.client || quote.customer, 'email') || quote.client_email || 'N/A'}</div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-300 text-sm">
+                          {quote.quotation_date || quote.created_at?.split('T')[0] || 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 font-bold text-white text-sm">Rs. {parseFloat(quote.final_amount || quote.total_amount || 0).toLocaleString()}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${getStatusColor(quote.status)} flex items-center gap-1 w-fit`}>
                             {getStatusIcon(quote.status)}
-                            {quote.status.charAt(0).toUpperCase() + quote.status.slice(1)}
+                            {quote.status}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors">
-                            View Details
-                          </button>
+                          <div className="flex gap-2">
+                            <button 
+                                onClick={() => {
+                                  setSelectedQuotation(quote);
+                                  setShowDetailsModal(true);
+                                }}
+                                className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200"
+                                title="View Details"
+                            >
+                                Details
+                            </button>
+                            <button 
+                                onClick={() => handleViewPdf(quote.id)}
+                                disabled={downloadingPdf === quote.id}
+                                className="bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1"
+                                title="View PDF"
+                            >
+                                {downloadingPdf === quote.id ? (
+                                  <div className="w-3 h-3 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin"></div>
+                                ) : <FiFileText size={14} />}
+                                PDF
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     </>
@@ -698,7 +675,220 @@ const TotalQuotations = () => {
               </button>
             </div>
           </div>
+            </>
+          )}
         </div>
+        {/* Quotation Details Modal */}
+        {showDetailsModal && selectedQuotation && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm">
+            <div className="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200 flex flex-col">
+              {/* Modal Header */}
+              <div className="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center bg-gray-800/50">
+                <div className="pr-4">
+                  <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2 flex-wrap">
+                    Quotation Details <span className="text-blue-400 text-xs sm:text-sm font-mono bg-blue-400/10 px-2 py-0.5 rounded-md">#{selectedQuotation.id}</span>
+                  </h3>
+                  <p className="text-[10px] sm:text-xs text-gray-400 mt-1">Submitted on {selectedQuotation.quotation_date || getVal(selectedQuotation, 'created_at')?.split('T')[0]}</p>
+                </div>
+                <button 
+                  onClick={() => setShowDetailsModal(false)}
+                  className="p-2 hover:bg-gray-700 rounded-full transition-colors text-gray-400 hover:text-white shrink-0"
+                >
+                  <FiX size={20} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-4 sm:p-6 flex-1 overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                  {/* Client Info */}
+                  <div className="space-y-3 sm:space-y-4">
+                    <h4 className="text-[10px] sm:text-xs uppercase font-bold text-gray-500 tracking-wider">Client Information</h4>
+                    <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700/50">
+                      <p className="text-sm font-semibold text-white">{getVal(selectedQuotation.client || selectedQuotation.customer, 'name') || selectedQuotation.client_name || 'N/A'}</p>
+                      <p className="text-xs text-gray-400 mt-1 break-all">{getVal(selectedQuotation.client || selectedQuotation.customer, 'email') || selectedQuotation.client_email || 'N/A'}</p>
+                      <div className="mt-3 flex items-center gap-2 text-[11px] sm:text-xs text-gray-500">
+                        <FiUser size={12} className="shrink-0" />
+                        <span className="truncate">Salesperson: {getVal(selectedQuotation.user || selectedQuotation.salesperson, 'name') || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary Info */}
+                  <div className="space-y-3 sm:space-y-4">
+                    <h4 className="text-[10px] sm:text-xs uppercase font-bold text-gray-500 tracking-wider">Summary</h4>
+                    <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700/50">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs text-gray-400 font-medium italic">Status</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${getStatusColor(selectedQuotation.status)}`}>
+                          {selectedQuotation.status}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs text-gray-400 font-medium italic">Discount</span>
+                        <span className="text-sm font-semibold text-red-400">
+                          - Rs. {parseFloat(selectedQuotation.total_discount || 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center border-t border-gray-700/50 pt-2">
+                        <span className="text-xs text-gray-400 font-medium italic">Final Total</span>
+                        <span className="text-base sm:text-lg font-bold text-white">Rs. {parseFloat(selectedQuotation.final_amount || selectedQuotation.total_amount || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status Specific Info */}
+                {(selectedQuotation.status === 'rejected' || selectedQuotation.status === 'declined') && (
+                    <div className="mt-4 sm:mt-6">
+                        <h4 className="text-[10px] sm:text-xs uppercase font-bold text-gray-500 tracking-wider mb-2">Rejection Reason</h4>
+                        <div className="bg-red-500/5 border border-red-500/20 p-4 rounded-xl text-sm text-gray-300 italic">
+                            "{selectedQuotation.rejection_reason || selectedQuotation.reason || 'No specific reason provided.'}"
+                        </div>
+                    </div>
+                )}
+
+                {(selectedQuotation.status === 'win' || selectedQuotation.status === 'won') && (
+                    <div className="mt-4 sm:mt-6 bg-green-500/5 border border-green-500/20 p-4 rounded-xl flex justify-between items-center">
+                        <span className="text-[10px] sm:text-xs text-gray-400 italic">Invoice Number</span>
+                        <span className="text-xs sm:text-sm text-yellow-400 font-bold ml-1">{selectedQuotation.invoice_number || selectedQuotation.invoiceNumber || 'N/A'}</span>
+                    </div>
+                )}
+
+                {/* Items List */}
+                {selectedQuotation.items && Array.isArray(selectedQuotation.items) && selectedQuotation.items.length > 0 && (
+                  <div className="mt-8">
+                    <h4 className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-4">Detailed Line Items</h4>
+                    <div className="bg-gray-900/50 rounded-xl border border-gray-700/50 divide-y divide-gray-800">
+                      {selectedQuotation.items.map((item, idx) => (
+                        <div key={idx} className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-center">
+                          <div>
+                            <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tight">{getVal(item, 'category_name') || 'Category'}</p>
+                            <p className="text-sm font-bold text-white leading-tight">{getVal(item, 'product_name') || 'Product Name'}</p>
+                            {item.core_name && (
+                              <p className="text-[10px] text-purple-400 mt-0.5 bg-purple-400/10 px-1.5 py-0.5 rounded-md w-fit">Core: {item.core_name}</p>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-400 space-y-0.5">
+                            <p>Qty: <span className="text-gray-200 font-mono">{Number(item.quantity || 0)}</span></p>
+                            <p>Unit Price: <span className="text-gray-200 font-mono">Rs.{parseFloat(item.unit_price || item.price || 0).toLocaleString()}</span></p>
+                            <p>Discount: <span className="text-red-400 font-mono">Rs.{parseFloat(item.discount || item.discount_amount || 0).toLocaleString()}</span></p>
+                          </div>
+                          <div className="sm:text-right">
+                            <p className="text-[10px] text-gray-500 italic">Subtotal</p>
+                            <p className="text-base font-bold text-white">
+                              Rs. {(Number(item.quantity || 1) * parseFloat(item.unit_price || item.price || 0) - parseFloat(item.discount || item.discount_amount || 0)).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 sm:p-6 border-t border-gray-700 bg-gray-800/50">
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                  <button
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      handleViewPdf(selectedQuotation.id);
+                    }}
+                    className="w-full sm:w-auto px-4 py-2 bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 order-2 sm:order-1"
+                  >
+                    <FiFileText size={16} />
+                    View PDF
+                  </button>
+                  
+                  <div className="hidden sm:block sm:flex-1 order-2"></div>
+
+                  {['pending', 'submitted', 'revised'].includes(selectedQuotation.status?.toLowerCase()) ? (
+                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto order-1 sm:order-3">
+                      <button
+                        onClick={() => {
+                          setShowDetailsModal(false);
+                          handleReject(selectedQuotation.id);
+                        }}
+                        className="w-full sm:w-auto px-6 py-2 bg-red-600/10 hover:bg-red-600/20 text-red-500 rounded-xl font-semibold border border-red-600/20 transition-all text-center"
+                      >
+                        Reject
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowDetailsModal(false);
+                          handleApprove(selectedQuotation.id);
+                        }}
+                        className="w-full sm:w-auto px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold shadow-lg shadow-green-600/20 transition-all text-center"
+                      >
+                        Approve Quotation
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setShowDetailsModal(false)}
+                      className="w-full sm:w-auto px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold transition-all text-center order-1 sm:order-3"
+                    >
+                      Close
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Rejection Modal */}
+        {showRejectModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <span className="w-8 h-8 bg-red-500/10 text-red-500 rounded-lg flex items-center justify-center text-lg">❌</span>
+                    Reject Quotation
+                  </h3>
+                  <button 
+                    onClick={() => setShowRejectModal(false)}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <FiX size={24} />
+                  </button>
+                </div>
+
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Reason for Rejection <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all min-h-[120px]"
+                    placeholder="Please explain why this quotation is being rejected..."
+                  ></textarea>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowRejectModal(false)}
+                    className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmReject}
+                    disabled={rejecting || !rejectionReason.trim()}
+                    className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-semibold shadow-lg shadow-red-600/20 transition-all flex items-center justify-center gap-2"
+                  >
+                    {rejecting ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    ) : "Confirm Reject"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,25 +1,53 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import SuperAdminNavbar from "../../../components/SuperAdminNavbar";
-import API from "../../../api/api";
-import { FiSearch, FiFilter, FiX, FiUser, FiDollarSign, FiCalendar, FiXCircle, FiChevronRight, FiRefreshCw } from 'react-icons/fi';
+import {
+  FiSearch,
+  FiX,
+  FiFileText,
+  FiUser,
+  FiClock,
+  FiAlertCircle,
+  FiCheck,
+  FiXCircle,
+} from "react-icons/fi";
+import API, { getQuotations, generateQuotationPdf } from "../../../api/api";
 
 const RejectedList = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [rejectedQuotations, setRejectedQuotations] = useState([]);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedQuotation, setSelectedQuotation] = useState(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [filters, setFilters] = useState({
-    salesperson: 'all',
-    area: 'all',
-    rejectReason: 'all',
-    sortBy: 'rejectDate',
-    sortOrder: 'desc'
-  });
+  const [quotations, setQuotations] = useState([]);
+  
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
   const navigate = useNavigate();
+
+  // Modal States
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedQuotation, setSelectedQuotation] = useState(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(null);
+
+  // Safe access helper
+  const getVal = (val, field) => {
+    if (!val) return 'N/A';
+    if (typeof val === 'object') return val[field] || 'N/A';
+    return val;
+  };
+
+  const handleViewPdf = async (id) => {
+    try {
+      setDownloadingPdf(id);
+      const response = await generateQuotationPdf(id);
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error("Error viewing PDF:", err);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setDownloadingPdf(null);
+    }
+  };
 
   useEffect(() => {
     fetchRejectedQuotations();
@@ -29,406 +57,245 @@ const RejectedList = () => {
     try {
       setLoading(true);
       setError(null);
-      // const response = await API.get("/quotations/22/reject");
-      const response = { data: { quotations: [] } };
       
-      if (response.data) {
-        const data = response.data.quotations || response.data.data || response.data || [];
-        setRejectedQuotations(Array.isArray(data) ? data : []);
+      const quotesRes = await getQuotations();
+
+      if (quotesRes.data) {
+        const allQuotes = quotesRes.data.data || quotesRes.data.quotations || quotesRes.data || [];
+        
+        // Filter for rejected status
+        const rejectedQuotes = allQuotes.filter(quote => {
+          const status = (quote.status || "").toLowerCase();
+          return status === 'rejected';
+        });
+
+        setQuotations(rejectedQuotes);
       }
     } catch (err) {
       console.error("Error fetching rejected quotations:", err);
-      setError("Failed to load rejected quotations from API");
+      setError("Failed to load rejected quotations");
     } finally {
       setLoading(false);
     }
   };
 
-  // Get unique values for filters
-  const salespersons = useMemo(() => {
-    const unique = [...new Set(rejectedQuotations.map(q => q.salesperson || q.salesman?.name || 'N/A'))];
-    return unique;
-  }, [rejectedQuotations]);
+  const rejectedQuotations = quotations;
 
-  const areas = useMemo(() => {
-    const unique = [...new Set(rejectedQuotations.map(q => q.area || q.salesman?.area || 'N/A'))];
-    return unique;
-  }, [rejectedQuotations]);
-
-  const rejectReasons = [
-    { value: 'all', label: 'All Reasons' },
-    { value: 'budget_constraints', label: 'Budget Constraints' },
-    { value: 'competitor_lower_price', label: 'Competitor Lower Price' },
-    { value: 'scope_mismatch', label: 'Scope Mismatch' },
-    { value: 'timeline_issues', label: 'Timeline Issues' },
-    { value: 'requirements_changed', label: 'Requirements Changed' },
-    { value: 'other', label: 'Other' },
-  ];
-
-  // Filter and sort quotations
+  // Filter quotations based on search
   const filteredQuotations = useMemo(() => {
-    let result = [...rejectedQuotations];
-    
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(quote =>
-        (quote.customer_name || quote.customer || '').toLowerCase().includes(query) ||
-        quote.id.toString().includes(query) ||
-        (quote.salesperson || quote.salesman?.name || '').toLowerCase().includes(query) ||
-        (quote.service || quote.title || '').toLowerCase().includes(query)
-      );
-    }
-    
-    // Apply salesperson filter
-    if (filters.salesperson !== 'all') {
-      result = result.filter(quote => quote.salesperson === filters.salesperson);
-    }
-    
-    // Apply area filter
-    if (filters.area !== 'all') {
-      result = result.filter(quote => quote.area === filters.area);
-    }
-    
-    // Apply reject reason filter
-    if (filters.rejectReason !== 'all') {
-      result = result.filter(quote => quote.rejectReason === filters.rejectReason);
-    }
-    
-    // Apply sorting
-    result.sort((a, b) => {
-      let comparison = 0;
-      
-      switch (filters.sortBy) {
-        case 'rejectDate':
-          comparison = new Date(b.rejectDate) - new Date(a.rejectDate);
-          break;
-        case 'date':
-          comparison = new Date(b.date) - new Date(a.date);
-          break;
-        case 'amount':
-          comparison = (b.total_amount || b.amount || 0) - (a.total_amount || a.amount || 0);
-          break;
-        case 'salesperson':
-          comparison = a.salesperson.localeCompare(b.salesperson);
-          break;
-        case 'customer':
-          comparison = a.customer.localeCompare(b.customer);
-          break;
-        default:
-          comparison = new Date(b.rejectDate) - new Date(a.date);
-      }
-      
-      return filters.sortOrder === 'asc' ? comparison : -comparison;
-    });
-    
-    return result;
-  }, [rejectedQuotations, searchQuery, filters]);
+    if (!searchQuery) return rejectedQuotations;
 
-  const handleQuotationClick = (quotation) => {
-    setSelectedQuotation(quotation);
-    setShowDetailsModal(true);
-  };
+    const query = searchQuery.toLowerCase();
+    return rejectedQuotations.filter(
+      (quote) =>
+      (quote.client_name || quote.customer || "").toLowerCase().includes(query) ||
+      String(quote.id).toLowerCase().includes(query) ||
+      (quote.service_name || quote.service || "").toLowerCase().includes(query) ||
+      (quote.user?.name || quote.salesperson || "").toLowerCase().includes(query) ||
+      (quote.client_email || quote.customerEmail || "").toLowerCase().includes(query),
+    );
+  }, [rejectedQuotations, searchQuery]);
 
-  const getStatusColor = (status) => {
-    switch(status?.toLowerCase()) {
-      case 'rejected':
-        return 'bg-red-500/20 text-red-300 border-red-500/30';
-      case 'revised':
-        return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
-      case 'resubmitted':
-        return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case "high":
+        return "bg-red-500/20 text-red-300 border-red-500/30";
+      case "medium":
+        return "bg-yellow-500/20 text-yellow-300 border-yellow-500/30";
+      case "low":
+        return "bg-blue-500/20 text-blue-300 border-blue-500/30";
       default:
-        return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+        return "bg-gray-500/20 text-gray-300 border-gray-500/30";
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const getReasonColor = (reason) => {
-    switch(reason) {
-      case 'budget_constraints':
-        return 'bg-red-500/20 text-red-300';
-      case 'competitor_lower_price':
-        return 'bg-orange-500/20 text-orange-300';
-      case 'scope_mismatch':
-        return 'bg-yellow-500/20 text-yellow-300';
-      case 'timeline_issues':
-        return 'bg-blue-500/20 text-blue-300';
-      case 'requirements_changed':
-        return 'bg-purple-500/20 text-purple-300';
-      default:
-        return 'bg-gray-500/20 text-gray-300';
-    }
-  };
-
-  const getReasonLabel = (reason) => {
-    if (!reason) return 'N/A';
-    const reasonObj = rejectReasons.find(r => r.value === reason);
-    return reasonObj ? reasonObj.label : reason.replace('_', ' ');
-  };
-
-  const handleRevise = (id) => {
-    if (window.confirm(`Create a revised version of quotation ${id}?`)) {
-      alert(`Revised quotation created from ${id}!`);
-      // In real app, make API call here
-    }
-  };
-
-  const handleResubmit = (id) => {
-    if (window.confirm(`Resubmit quotation ${id} for approval?`)) {
-      alert(`Quotation ${id} has been resubmitted!`);
-      // In real app, make API call here
-    }
+  // Clear search
+  const clearSearch = () => {
+    setSearchQuery("");
   };
 
   return (
     <div className="bg-gray-900 min-h-screen text-white">
       {/* Navbar */}
       <SuperAdminNavbar open={sidebarOpen} setOpen={setSidebarOpen} />
-      
+
       {/* Main Content */}
-      <div className={`transition-all duration-300 lg:ml-64 lg:-mt-135 ${sidebarOpen ? 'overflow-hidden' : ''}`}>
+      <div
+        className={`transition-all duration-300 lg:ml-64 lg:-mt-135 ${sidebarOpen ? "overflow-hidden" : ""}`}
+      >
+        {/* Mobile Top Spacer */}
         <div className="h-16 lg:h-0"></div>
-        
-        <div className={`p-4 sm:p-6 ${sidebarOpen ? 'overflow-hidden' : ''}`}>
-          {/* Header */}
-         
-          <div className={`p-4 sm:p-6 ${sidebarOpen ? 'overflow-hidden' : ''}`}>
+
+        {/* Content Container */}
+        <div className={`p-4 sm:p-6 lg:pt-0 ${sidebarOpen ? "overflow-hidden" : ""}`}>
+          
+          {loading ? (
+            <div className="flex flex-col items-center justify-center min-h-[400px]">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+              <p className="text-gray-400">Loading rejected quotations...</p>
+            </div>
+          ) : error ? (
+            <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-6 text-center">
+              <p className="text-red-400 mb-4">{error}</p>
+              <button 
+                onClick={fetchRejectedQuotations}
+                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          ) : (
+            <>
+          <div className="p-4 sm:p-6">
             {/* Header */}
             <div className="mb-6 flex justify-between items-start">
-                
-                {/* Left Text */}
-                <div>
-                <h1 className="text-2xl sm:text-3xl font-bold">Rejected Quotations</h1>
+              {/* Left Text */}
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-red-500">Rejected Quotations</h1>
                 <p className="text-gray-400 mt-1">
-                    Review rejected quotations and manage revisions
+                  Quotations that were not approved. Review reasons and feedback.
                 </p>
-                </div>
+              </div>
 
-                {/* Right Button */}
-                <button 
+              {/* Right Button */}
+              <button
                 onClick={() => navigate(-1)}
                 className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-                >
-                ← Back to Dashboard
-                </button>
-
+              >
+                ← Back
+              </button>
             </div>
+          </div>
+
+          {/* Summary Stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+              <p className="text-gray-400 text-sm sm:text-base">Total Rejected</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-red-500 mt-1 sm:mt-2">{rejectedQuotations.length}</h2>
+              <p className="text-red-400 text-xs sm:text-sm mt-1 flex items-center gap-1"><FiXCircle /> Declined</p>
             </div>
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+              <p className="text-gray-400 text-sm sm:text-base">High Priority</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mt-1 sm:mt-2">
+                {rejectedQuotations.filter(q => (q.priority || "").toLowerCase() === 'high').length}
+              </h2>
+              <p className="text-red-400 text-xs sm:text-sm mt-1">Attention needed</p>
+            </div>
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+              <p className="text-gray-400 text-sm sm:text-base">Total Value</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mt-1 sm:mt-2">
+                Rs. {rejectedQuotations.reduce((sum, q) => sum + parseFloat(q.final_amount || q.total_amount || 0), 0).toLocaleString()}
+              </h2>
+              <p className="text-purple-400 text-xs sm:text-sm mt-1">Rejected amount</p>
+            </div>
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+              <p className="text-gray-400 text-sm sm:text-base">Avg. Rejection</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mt-1 sm:mt-2">N/A</h2>
+              <p className="text-blue-400 text-xs sm:text-sm mt-1">Trend analysis</p>
+            </div>
+          </div>
 
-
-          {/* Search and Filter Bar */}
+          {/* Search Bar */}
           <div className="bg-gray-800 rounded-lg sm:rounded-xl border border-gray-700 p-4 mb-6">
             <div className="flex flex-col gap-4">
-              {/* Search Bar */}
               <div className="relative">
                 <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search by customer, quotation ID, or salesperson..."
+                  placeholder="Search rejected quotations by customer, ID, service, or salesperson..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
                 {searchQuery && (
                   <button
-                    onClick={() => setSearchQuery('')}
+                    onClick={clearSearch}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
                   >
                     <FiX />
                   </button>
                 )}
               </div>
-
-              {/* Filter Controls */}
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 flex flex-col sm:flex-row gap-3">
-                  {/* Salesperson Filter */}
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">Salesperson</label>
-                    <select
-                      value={filters.salesperson}
-                      onChange={(e) => setFilters({...filters, salesperson: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      <option value="all">All Salespersons</option>
-                      {salespersons.map(sp => (
-                        <option key={sp} value={sp}>{sp}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Area Filter */}
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">Area</label>
-                    <select
-                      value={filters.area}
-                      onChange={(e) => setFilters({...filters, area: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      <option value="all">All Areas</option>
-                      {areas.map(area => (
-                        <option key={area} value={area}>{area}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Reject Reason Filter */}
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">Reject Reason</label>
-                    <select
-                      value={filters.rejectReason}
-                      onChange={(e) => setFilters({...filters, rejectReason: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      {rejectReasons.map(reason => (
-                        <option key={reason.value} value={reason.value}>{reason.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Sort By */}
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">Sort By</label>
-                    <select
-                      value={filters.sortBy}
-                      onChange={(e) => setFilters({...filters, sortBy: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      <option value="rejectDate">Reject Date</option>
-                      <option value="date">Created Date</option>
-                      <option value="amount">Amount</option>
-                      <option value="salesperson">Salesperson</option>
-                      <option value="customer">Customer</option>
-                    </select>
-                  </div>
-
-                  {/* Sort Order */}
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">Order</label>
-                    <select
-                      value={filters.sortOrder}
-                      onChange={(e) => setFilters({...filters, sortOrder: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      <option value="desc">Newest First</option>
-                      <option value="asc">Oldest First</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 
-          {/* Stats Summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-            <div className="bg-gradient-to-br from-red-900/30 to-rose-900/30 p-4 rounded-xl border border-red-700/30">
-              <p className="text-gray-400 text-sm">Total Rejected</p>
-              <p className="text-2xl font-bold text-red-400">{rejectedQuotations.length}</p>
-            </div>
-            <div className="bg-gradient-to-br from-orange-900/30 to-amber-900/30 p-4 rounded-xl border border-orange-700/30">
-              <p className="text-gray-400 text-sm">Budget Issues</p>
-              <p className="text-2xl font-bold text-orange-400">
-                {rejectedQuotations.filter(q => q.rejectReason === 'budget_constraints').length}
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-yellow-900/30 to-amber-900/30 p-4 rounded-xl border border-yellow-700/30">
-              <p className="text-gray-400 text-sm">Can Be Revised</p>
-              <p className="text-2xl font-bold text-yellow-400">
-                {rejectedQuotations.filter(q => q.canBeRevised).length}
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-blue-900/30 to-cyan-900/30 p-4 rounded-xl border border-blue-700/30">
-              <p className="text-gray-400 text-sm">Total Lost Revenue</p>
-              <p className="text-2xl font-bold text-blue-400">
-                ${rejectedQuotations.reduce((sum, q) => sum + parseFloat(q.total_amount || q.amount || 0), 0).toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          <div className="mb-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+          {/* Results Summary */}
+          <div className="mb-4">
             <p className="text-gray-400 text-sm">
-              Showing {filteredQuotations.length} of {rejectedQuotations.length} rejected quotations
+              Showing {filteredQuotations.length} of {rejectedQuotations.length}{" "}
+              rejected quotations
             </p>
-            {error && <span className="text-red-400 text-sm">⚠️ {error}</span>}
-            {loading && <div className="w-6 h-6 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>}
-            <div className="text-sm text-gray-400">
-              {rejectedQuotations.filter(q => q.canBeRevised).length} can be revised
-            </div>
           </div>
 
-          {/* Quotations Table */}
+          {/* Table Container */}
           <div className="bg-gray-800 rounded-lg sm:rounded-xl border border-gray-700 shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-full">
                 {/* Desktop Headers */}
                 <thead className="bg-gray-700 hidden sm:table-header-group">
                   <tr>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Quotation ID</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Customer</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Service</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Reject Date</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Amount</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Reason</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm"></th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">ID</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Customer</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Date</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Amount</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Status</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Actions</th>
                   </tr>
                 </thead>
-                
+
                 {/* Mobile Headers */}
                 <thead className="bg-gray-700 sm:hidden">
                   <tr>
-                    <th colSpan="2" className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">
+                    <th
+                      colSpan="2"
+                      className="px-4 py-3 text-left font-semibold text-gray-300 text-sm"
+                    >
                       Rejected Quotations ({filteredQuotations.length})
                     </th>
                   </tr>
                 </thead>
-                
+
                 <tbody>
                   {filteredQuotations.map((quote) => (
                     <React.Fragment key={quote.id}>
                       {/* Mobile View - Card Layout */}
-                      <tr className="sm:hidden border-b border-gray-700 hover:bg-gray-750 transition-colors duration-200">
+                      <tr className="sm:hidden border-b border-gray-700">
                         <td colSpan="2" className="p-4">
-                          <div 
-                            className="space-y-3 cursor-pointer"
-                            onClick={() => handleQuotationClick(quote)}
-                          >
+                          <div className="space-y-3">
                             <div className="flex justify-between items-start">
                               <div>
-                                <h3 className="font-bold text-red-400">QT-{quote.id}</h3>
-                                <h4 className="font-semibold text-white mt-1">{quote.customer_name || quote.customer || 'N/A'}</h4>
-                                <p className="text-gray-400 text-sm">{quote.service || quote.title || 'N/A'}</p>
+                                <span className="font-bold text-blue-400">{quote.id}</span>
+                                <h3 className="font-semibold text-white mt-1">{getVal(quote.client || quote.customer, 'name') || quote.client_name || 'N/A'}</h3>
+                                <p className="text-gray-400 text-sm">{getVal(quote.client || quote.customer, 'email') || quote.client_email || 'N/A'}</p>
                               </div>
-                              <FiChevronRight className="text-gray-400" />
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(quote.priority || 'medium')} flex items-center gap-1`}>
+                                {(quote.priority || 'medium').charAt(0).toUpperCase() + (quote.priority || 'medium').slice(1)}
+                              </span>
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-gray-400 text-xs">Salesperson</p>
-                                <p className="text-purple-300 text-sm">{quote.salesperson || quote.salesman?.name || 'N/A'}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-400 text-xs">Reject Date</p>
-                                <p className="text-gray-300 text-sm">{formatDate(quote.rejected_at || quote.updated_at)}</p>
-                              </div>
+                            <div className="flex items-center gap-2">
+                              <FiUser className="text-purple-300 text-xs" />
+                              <p className="text-purple-300 text-sm font-medium">{getVal(quote.user || quote.salesperson, 'name')}</p>
+                            </div>
+
+                            <div className="flex justify-between items-center">
+                              <p className="font-bold text-white text-sm">Rs. {parseFloat(quote.final_amount || quote.total_amount || 0).toLocaleString()}</p>
+                              <p className="text-red-400 text-xs flex items-center gap-1">
+                                <FiXCircle size={12} /> Rejected
+                              </p>
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-gray-400 text-xs">Amount</p>
-                                <p className="font-bold text-white text-sm">${quote.total_amount || quote.amount || '0'}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-400 text-xs">Reason</p>
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${getReasonColor(quote.rejectReason || 'budget_constraints')}`}>
-                                  {getReasonLabel(quote.rejectReason || quote.rejection_reason || 'Other')}
-                                </span>
-                              </div>
+                            <div className="pt-2">
+                              <button 
+                                onClick={() => {
+                                  setSelectedQuotation(quote);
+                                  setShowDetailsModal(true);
+                                }}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-medium transition-colors"
+                              >
+                                View Details
+                              </button>
                             </div>
                           </div>
                         </td>
@@ -436,69 +303,51 @@ const RejectedList = () => {
                       
                       {/* Desktop/Tablet View - Table Layout */}
                       <tr className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
-                        <td className="px-6 py-4">
-                          <div 
-                            className="font-bold text-red-400 cursor-pointer hover:text-red-300 transition-colors"
-                            onClick={() => handleQuotationClick(quote)}
-                          >
-                            QT-{quote.id}
-                          </div>
+                        <td className="px-4 py-3">
+                          <span className="font-bold text-blue-400 text-sm">#{quote.id}</span>
                         </td>
-                        <td className="px-6 py-4">
-                          <div 
-                            className="font-semibold text-white cursor-pointer hover:text-blue-300 transition-colors"
-                            onClick={() => handleQuotationClick(quote)}
-                          >
-                            {quote.customer_name || quote.customer || 'N/A'}
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">{quote.customer_email || quote.email}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-green-400 font-medium text-sm">{quote.service || quote.title || 'N/A'}</span>
-                        </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <FiUser className="w-4 h-4 text-purple-400" />
-                            <span className="text-purple-300 text-sm">{quote.salesperson || quote.salesman?.name || 'N/A'}</span>
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">{quote.area || quote.salesman?.area || 'N/A'}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <FiCalendar className="w-4 h-4 text-red-400" />
+                            <FiUser className="text-purple-300" />
                             <div>
-                              <div className="text-gray-300 text-sm">{formatDate(quote.rejected_at || quote.updated_at)}</div>
-                              <div className="text-xs text-gray-500">By: {quote.rejected_by_name || 'System'}</div>
+                                <div className="text-purple-300 text-sm font-medium">{getVal(quote.user || quote.salesperson, 'name')}</div>
+                                <div className="text-xs text-gray-400 font-mono">ID: #{quote.user_id || quote.salesperson_id || (typeof quote.user === 'object' ? quote.user.id : '')}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <FiDollarSign className="w-4 h-4 text-yellow-400" />
-                            <span className="font-bold text-white">${quote.total_amount || quote.amount || '0'}</span>
-                          </div>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-white text-sm">{getVal(quote.client || quote.customer, 'name') || quote.client_name || 'N/A'}</div>
+                          <div className="text-xs text-gray-400 truncate max-w-[150px]">{getVal(quote.client || quote.customer, 'email') || quote.client_email || 'N/A'}</div>
                         </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded text-xs font-medium ${getReasonColor(quote.rejectReason || 'budget_constraints')}`}>
-                            {getReasonLabel(quote.rejectReason || quote.rejection_reason || 'Other')}
+                        <td className="px-4 py-3 text-gray-300 text-sm">
+                          {quote.quotation_date || quote.created_at?.split('T')[0] || 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 font-bold text-white text-sm">Rs. {parseFloat(quote.final_amount || quote.total_amount || 0).toLocaleString()}</td>
+                        <td className="px-4 py-3">
+                          <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-500/10 text-red-500 border border-red-500/20 w-fit flex items-center gap-1">
+                            <FiXCircle size={10} /> Rejected
                           </span>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            {quote.canBeRevised && (
-                              <button 
-                                onClick={() => handleRevise(quote.id)}
-                                className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors flex items-center gap-1"
-                              >
-                                <FiRefreshCw className="w-3 h-3" />
-                                Revise
-                              </button>
-                            )}
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
                             <button 
-                                onClick={() => handleQuotationClick(quote)}
-                                className="text-gray-400 hover:text-white transition-colors"
+                                onClick={() => {
+                                  setSelectedQuotation(quote);
+                                  setShowDetailsModal(true);
+                                }}
+                                className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200"
                             >
-                                <FiChevronRight className="w-5 h-5" />
+                                Details
+                            </button>
+                            <button 
+                                onClick={() => handleViewPdf(quote.id)}
+                                disabled={downloadingPdf === quote.id}
+                                className="bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1"
+                            >
+                                {downloadingPdf === quote.id ? (
+                                  <div className="w-3 h-3 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin"></div>
+                                ) : <FiFileText size={14} />}
+                                PDF
                             </button>
                           </div>
                         </td>
@@ -509,220 +358,132 @@ const RejectedList = () => {
               </table>
             </div>
 
-            {filteredQuotations.length === 0 && !loading && (
+            {filteredQuotations.length === 0 && (
               <div className="text-center py-12">
                 <FiXCircle className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                 <p className="text-gray-400">No rejected quotations found</p>
-                <p className="text-gray-500 text-sm mt-2">
-                  {searchQuery 
-                    ? `No results found for "${searchQuery}". Try a different search term.`
-                    : 'No rejected quotations in the system.'}
-                </p>
-              </div>
-            )}
-            {loading && (
-              <div className="text-center py-20 flex flex-col items-center gap-4">
-                <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-gray-400 animate-pulse">Fetching rejected quotations...</p>
               </div>
             )}
           </div>
-
-          {/* Analysis & Actions */}
-          <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Rejection Reasons Analysis */}
-            <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-              <h3 className="text-lg font-semibold mb-3">Rejection Reasons Analysis</h3>
-              <div className="space-y-3">
-                {rejectReasons
-                  .filter(reason => reason.value !== 'all')
-                  .map(reason => {
-                    const count = rejectedQuotations.filter(q => q.rejectReason === reason.value).length;
-                    const percentage = (count / rejectedQuotations.length) * 100;
-                    return (
-                      <div key={reason.value} className="space-y-1">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-300">{reason.label}</span>
-                          <span className="text-gray-400">{count} ({percentage.toFixed(1)}%)</span>
-                        </div>
-                        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-red-500 rounded-full"
-                            style={{ width: `${percentage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-
-            {/* Recovery Actions */}
-            <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
-              <h3 className="text-lg font-semibold mb-3">Recovery Actions</h3>
-              <div className="space-y-3">
-                <button className="w-full p-3 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-white font-medium transition-colors">
-                  Create Revised Versions for All Revisable
-                </button>
-                <button className="w-full p-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition-colors">
-                  Export Rejection Analysis Report
-                </button>
-                <button className="w-full p-3 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-colors">
-                  Review Sales Training Needs
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Quotation Details Modal */}
-          {showDetailsModal && selectedQuotation && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-              <div className="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                {/* Modal Header */}
-                <div className="p-6 border-b border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <FiXCircle className="w-8 h-8 text-red-400" />
-                      <div>
-                        <h2 className="text-2xl font-bold text-red-400">{selectedQuotation.id}</h2>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedQuotation.status)}`}>
-                            REJECTED
-                          </span>
-                          <span className={`px-3 py-1 rounded text-xs font-medium ${getReasonColor(selectedQuotation.rejectReason)}`}>
-                            {getReasonLabel(selectedQuotation.rejectReason)}
-                          </span>
-                          {selectedQuotation.canBeRevised && (
-                            <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/20 text-yellow-300">
-                              Can Be Revised
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => setShowDetailsModal(false)}
-                      className="text-gray-400 hover:text-white text-2xl"
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
-
-                {/* Modal Body */}
-                <div className="p-6">
-                  {/* Quotation Information */}
-                  <div className="mb-8">
-                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Quotation Details</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <p className="text-sm text-gray-400">Customer</p>
-                        <p className="font-medium text-lg">{selectedQuotation.customer_name || selectedQuotation.customer || 'N/A'}</p>
-                        <p className="text-xs text-gray-500">{selectedQuotation.customer_email || selectedQuotation.email}</p>
-                      </div>
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <p className="text-sm text-gray-400">Salesperson</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <FiUser className="w-4 h-4 text-purple-400" />
-                          <p className="font-medium">{selectedQuotation.salesperson || selectedQuotation.salesman?.name || 'N/A'}</p>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-1">{selectedQuotation.area || selectedQuotation.salesman?.area || 'N/A'}</p>
-                      </div>
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <p className="text-sm text-gray-400">Service</p>
-                        <p className="font-medium text-green-400">{selectedQuotation.service || selectedQuotation.title || 'N/A'}</p>
-                      </div>
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <p className="text-sm text-gray-400">Amount</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <FiDollarSign className="w-5 h-5 text-yellow-400" />
-                          <p className="font-bold text-2xl">${selectedQuotation.total_amount || selectedQuotation.amount || '0'}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Rejection Details */}
-                  <div className="mb-8">
-                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Rejection Details</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 bg-red-900/20 rounded-lg border border-red-700/30">
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <p className="text-sm text-gray-400">Rejected By</p>
-                            <p className="font-medium">{selectedQuotation.rejected_by_name || 'System'}</p>
-                          </div>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-2">Date: {formatDate(selectedQuotation.rejected_at || selectedQuotation.updated_at)}</p>
-                      </div>
-                      <div className="p-4 bg-red-900/20 rounded-lg border border-red-700/30">
-                        <p className="text-sm text-gray-400">Rejection Reason</p>
-                        <p className="font-medium text-red-300 text-lg mt-1">{getReasonLabel(selectedQuotation.rejectReason || selectedQuotation.rejection_reason || 'Other')}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Notes */}
-                  <div className="mb-8">
-                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Rejection Notes</h3>
-                    <div className="p-4 bg-red-900/10 rounded-lg border border-red-700/20">
-                      <p className="text-gray-300">{selectedQuotation.notes}</p>
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <div className="mb-8">
-                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Original Description</h3>
-                    <div className="p-4 bg-gray-750 rounded-lg">
-                      <p className="text-gray-300">{selectedQuotation.description}</p>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {selectedQuotation.canBeRevised && (
-                      <button 
-                        onClick={() => {
-                          handleRevise(selectedQuotation.id);
-                          setShowDetailsModal(false);
-                        }}
-                        className="p-3 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-white font-medium transition-colors flex items-center justify-center gap-2"
-                      >
-                        <FiRefreshCw className="w-4 h-4" />
-                        Create Revised Version
-                      </button>
-                    )}
-                    <button 
-                      onClick={() => {
-                        handleResubmit(selectedQuotation.id);
-                        setShowDetailsModal(false);
-                      }}
-                      className="p-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition-colors"
-                    >
-                      Resubmit for Approval
-                    </button>
-                    <button className="p-3 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-colors">
-                      View Full Details
-                    </button>
-                  </div>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="p-6 border-t border-gray-700 flex justify-end gap-3">
-                  <button
-                    onClick={() => setShowDetailsModal(false)}
-                    className="px-6 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                    Close
-                  </button>
-                  <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                    Edit Record
-                  </button>
-                </div>
-              </div>
-            </div>
+            </>
           )}
         </div>
+
+        {/* Quotation Details Modal */}
+        {showDetailsModal && selectedQuotation && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm">
+            <div className="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200 flex flex-col">
+              {/* Modal Header */}
+              <div className="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center bg-gray-800/50">
+                <div className="pr-4">
+                  <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2 flex-wrap">
+                    Quotation Details <span className="text-blue-400 text-xs sm:text-sm font-mono bg-blue-400/10 px-2 py-0.5 rounded-md">#{selectedQuotation.id}</span>
+                  </h3>
+                  <p className="text-[10px] sm:text-xs text-gray-400 mt-1">Submitted on {selectedQuotation.quotation_date || getVal(selectedQuotation, 'created_at')?.split('T')[0]}</p>
+                </div>
+                <button 
+                  onClick={() => setShowDetailsModal(false)}
+                  className="p-2 hover:bg-gray-700 rounded-full transition-colors text-gray-400 hover:text-white shrink-0"
+                >
+                  <FiX size={20} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-4 sm:p-6 flex-1 overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                  {/* Client Info */}
+                  <div className="space-y-3 sm:space-y-4">
+                    <h4 className="text-[10px] sm:text-xs uppercase font-bold text-gray-500 tracking-wider">Client Information</h4>
+                    <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700/50">
+                      <p className="text-sm font-semibold text-white">{getVal(selectedQuotation.client || selectedQuotation.customer, 'name') || selectedQuotation.client_name || 'N/A'}</p>
+                      <p className="text-xs text-gray-400 mt-1 break-all">{getVal(selectedQuotation.client || selectedQuotation.customer, 'email') || selectedQuotation.client_email || 'N/A'}</p>
+                      <div className="mt-3 flex items-center gap-2 text-[11px] sm:text-xs text-gray-500">
+                        <FiUser size={12} className="shrink-0" />
+                        <span className="truncate">Salesperson: {getVal(selectedQuotation.user || selectedQuotation.salesperson, 'name') || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary Info */}
+                  <div className="space-y-3 sm:space-y-4">
+                    <h4 className="text-[10px] sm:text-xs uppercase font-bold text-gray-500 tracking-wider">Summary</h4>
+                    <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700/50">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs text-gray-400 font-medium italic">Status</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-red-500/10 text-red-500 border border-red-500/20">
+                          {selectedQuotation.status || 'Rejected'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs text-gray-400 font-medium italic">Discount</span>
+                        <span className="text-sm font-semibold text-red-400">
+                          - Rs. {parseFloat(selectedQuotation.total_discount || 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center border-t border-gray-700/50 pt-2">
+                        <span className="text-xs text-gray-400 font-medium italic">Final Total</span>
+                        <span className="text-base sm:text-lg font-bold text-white">Rs. {parseFloat(selectedQuotation.final_amount || selectedQuotation.total_amount || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rejection Feedback */}
+                <div className="mt-6">
+                    <h4 className="text-[10px] sm:text-xs uppercase font-bold text-gray-500 tracking-wider">Rejection Feedback</h4>
+                    <div className="bg-red-500/5 p-4 rounded-xl border border-red-500/20 mt-3">
+                        <p className="text-sm text-red-400 italic">"{selectedQuotation.rejection_reason || 'No specific reason provided.'}"</p>
+                    </div>
+                </div>
+
+                {/* Items List */}
+                {selectedQuotation.items && Array.isArray(selectedQuotation.items) && selectedQuotation.items.length > 0 && (
+                  <div className="mt-8">
+                    <h4 className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-4">Detailed Line Items</h4>
+                    <div className="bg-gray-900/50 rounded-xl border border-gray-700/50 divide-y divide-gray-800">
+                      {selectedQuotation.items.map((item, idx) => (
+                        <div key={idx} className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-center">
+                          <div>
+                            <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tight">{getVal(item, 'category_name') || 'Category'}</p>
+                            <p className="text-sm font-bold text-white leading-tight">{getVal(item, 'product_name') || 'Product Name'}</p>
+                            {item.core_name && (
+                              <p className="text-[10px] text-purple-400 mt-0.5 bg-purple-400/10 px-1.5 py-0.5 rounded-md w-fit">Core: {item.core_name}</p>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-400 space-y-0.5">
+                            <p>Qty: <span className="text-gray-200 font-mono">{Number(item.quantity || 0)}</span></p>
+                            <p>Unit Price: <span className="text-gray-200 font-mono">Rs.{parseFloat(item.unit_price || item.price || 0).toLocaleString()}</span></p>
+                            <p>Discount: <span className="text-red-400 font-mono">Rs.{parseFloat(item.discount || item.discount_amount || 0).toLocaleString()}</span></p>
+                          </div>
+                          <div className="sm:text-right">
+                            <p className="text-[10px] text-gray-500 italic">Subtotal</p>
+                            <p className="text-base font-bold text-white">
+                              Rs. {(Number(item.quantity || 1) * parseFloat(item.unit_price || item.price || 0) - parseFloat(item.discount || item.discount_amount || 0)).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 sm:p-6 border-t border-gray-700 bg-gray-800/50">
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => handleViewPdf(selectedQuotation.id)}
+                    className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold transition-all flex items-center gap-2"
+                  >
+                    <FiFileText size={16} />
+                    View Original PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,16 +1,17 @@
 import { useRef, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { FiX, FiSave, FiAlertCircle, FiSearch } from 'react-icons/fi';
 import { getQuotations, submitDraftQuotation, generateQuotationPdf } from '../../api/api';
 
 const MyQuotations = () => {
   const navigate = useNavigate(); 
   const tableRef = useRef(null);
+  const location = useLocation();
   const [quotations, setQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submittingId, setSubmittingId] = useState(null);
-  const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'approved', 'win', 'pending', 'rejected'
+  const [filterStatus, setFilterStatus] = useState(location.state?.filterStatus || 'all'); // 'all', 'approved', 'win', 'pending', 'rejected'
   const [searchQuery, setSearchQuery] = useState('');
 //   const [selectedQuotation, setSelectedQuotation] = useState(null);
 //   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -63,7 +64,12 @@ const MyQuotations = () => {
 
   useEffect(() => {
     fetchQuotations();
-  }, []);
+    if (location.state?.filterStatus && tableRef.current) {
+      setTimeout(() => {
+        tableRef.current.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [location.state]);
 
   // Calculate total sales from approved quotations
   const calculateTotalSales = () => {
@@ -394,6 +400,7 @@ const MyQuotations = () => {
               <tr>
                 <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-semibold text-gray-300 text-sm sm:text-base">ID</th>
                 <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-semibold text-gray-300 text-sm sm:text-base">Customer</th>
+                <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-semibold text-gray-300 text-sm sm:text-base">Service</th>
                 <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-semibold text-gray-300 text-sm sm:text-base">Date</th>
                 <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-semibold text-gray-300 text-sm sm:text-base">Amount</th>
                 <th className="px-3 py-2 sm:px-4 sm:py-3 text-left font-semibold text-gray-300 text-sm sm:text-base">Status</th>
@@ -418,6 +425,9 @@ const MyQuotations = () => {
                     <div className="text-xs sm:text-sm text-gray-400">
                       {quote.email || quote.client?.email || 'N/A'}
                     </div>
+                  </td>
+                  <td className="px-3 py-2 sm:px-4 sm:py-3">
+                    <span className="text-green-400 font-medium text-sm sm:text-base">{quote.service_name || quote.service || 'N/A'}</span>
                   </td>
                   <td className="px-3 py-2 sm:px-4 sm:py-3 text-gray-300 text-sm sm:text-base">
                     {quote.quotation_date || quote.created_at?.split('T')[0] || 'N/A'}

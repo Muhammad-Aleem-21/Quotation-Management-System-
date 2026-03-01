@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import API, { createManager, getTeamStats } from "../../api/api";
+import API, { getTeamStats, getQuotations } from "../../api/api";
 import {
   LineChart,
   Line,
@@ -15,7 +15,6 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { FiPlus, FiCheckCircle, FiXCircle } from "react-icons/fi";
-import CreateManagerForm from "./CreateManagerForm"; // Import the form component
 
 const DashboardData = {
   stats: [
@@ -114,24 +113,31 @@ const COLORS = ["#16a34a", "#dc2626", "#f59e0b"]; // green, red, yellow
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const [showCreateManagerForm, setShowCreateManagerForm] = useState(false);
+  const userRole = (user.role || "").toLowerCase();
   const [liveStats, setLiveStats] = useState({ managers: 0, salespersons: 0 });
-  const [dialog, setDialog] = useState({ show: false, title: '', message: '', type: 'success' });
+  const [quoteStats, setQuoteStats] = useState({
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    win: 0
+  });
 
   React.useEffect(() => {
-    const fetchStats = async () => {
+    const fetchDashboardStats = async () => {
       try {
-        const response = await getTeamStats();
-        if (response.data.success) {
-          const myTeam = response.data.dashboard_stats.my_team || [];
+        const [statsResponse, quotesResponse] = await Promise.all([
+          getTeamStats(),
+          getQuotations()
+        ]);
+
+        if (statsResponse.data.success) {
+          const myTeam = statsResponse.data.dashboard_stats.my_team || [];
           const adminId = String(user.id);
-          
-          // Filter team members created by this specific admin
           const myAdminTeam = myTeam.filter(
             (member) => String(member.created_by_admin) === adminId
           );
 
-          // Calculate counts from filtered team
           const managersCount = myAdminTeam.filter(
             (m) => m.manager_id === null || m.role?.toLowerCase() === "manager"
           ).length;
@@ -144,80 +150,43 @@ export default function AdminDashboard() {
             salespersons: salesCount,
           });
         }
+
+        if (quotesResponse.data) {
+          const allQuotes = quotesResponse.data.data || quotesResponse.data.quotations || quotesResponse.data || [];
+          
+          let scopedQuotes = allQuotes;
+          
+          if (userRole === 'admin') {
+            const myTeam = statsResponse.data.dashboard_stats?.my_team || [];
+            const adminId = String(user.id);
+            const branchUserIds = myTeam
+              .filter(member => String(member.created_by_admin) === adminId || String(member.id) === adminId)
+              .map(member => String(member.id));
+
+            scopedQuotes = allQuotes.filter(quote => {
+              const creatorId = String(quote.user_id || quote.salesperson_id || quote.user?.id || "");
+              return branchUserIds.includes(creatorId);
+            });
+          }
+          
+          const stats = {
+            total: scopedQuotes.length,
+            pending: scopedQuotes.filter(q => ['pending', 'submitted', 'revised'].includes(q.status?.toLowerCase())).length,
+            approved: scopedQuotes.filter(q => ['approved', 'accepted'].includes(q.status?.toLowerCase())).length,
+            rejected: scopedQuotes.filter(q => q.status?.toLowerCase() === 'rejected').length,
+            win: scopedQuotes.filter(q => q.status?.toLowerCase() === 'win').length
+          };
+          
+          setQuoteStats(stats);
+        }
       } catch (err) {
         console.error("Error fetching live stats:", err);
       }
     };
-    fetchStats();
-  }, [user.id]);
+    fetchDashboardStats();
+  }, [user.id, userRole]);
 
-  const handleCreateManager = async (managerData) => {
-    try {
-      const payload = {
-        name: managerData.name,
-        email: managerData.email,
-        password: managerData.password,
-        password_confirmation: managerData.confirmPassword,
-        phone: managerData.contact,
-        address: managerData.address,
-        region: managerData.region,
-        role: 'manager', 
-        admin_id: user.id,
-      };
 
-      const response = await createManager(payload);
-      
-      if (response.data.success) {
-        setDialog({
-          show: true,
-          title: "Manager Created",
-          message: response.data.message || "Manager account has been created successfully.",
-          type: "success"
-        });
-        setShowCreateManagerForm(false);
-      }
-    } catch (err) {
-      console.error("Error creating manager:", err);
-      const errorMsg = err.response?.data?.message || err.response?.data?.error || "Failed to create manager";
-      setDialog({
-        show: true,
-        title: "Creation Error",
-        message: errorMsg,
-        type: "error"
-      });
-    }
-  };
-
-  // Success/Error Dialog Component
-  const SuccessErrorDialog = ({ show, title, message, type, onClose }) => {
-    if (!show) return null;
-    
-    return (
-      <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[60] backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="bg-gray-800 rounded-2xl border border-gray-700 w-full max-w-sm shadow-2xl overflow-hidden transform scale-100 animate-in zoom-in-95 duration-200">
-          <div className="p-8 text-center">
-            <div className={`w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center text-5xl ${
-              type === 'success' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
-            }`}>
-              {type === 'success' ? <FiCheckCircle /> : <FiXCircle />}
-            </div>
-            <h3 className="text-2xl font-bold text-white mb-2">{title}</h3>
-            <p className="text-gray-400 leading-relaxed mb-8">{message}</p>
-            <button
-              onClick={onClose}
-              className={`w-full py-3 rounded-xl font-bold text-lg transition-all shadow-lg active:scale-95 ${
-                type === 'success' 
-                  ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20' 
-                  : 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/20'
-              }`}
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div
@@ -233,15 +202,6 @@ export default function AdminDashboard() {
           </p>
         </div>
         
-        {/* Create Manager Button */}
-        <button
-          onClick={() => setShowCreateManagerForm(true)}
-          className="px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all duration-200 flex items-center gap-2 whitespace-nowrap shadow-lg hover:shadow-xl"
-        >
-          <FiPlus className="text-xl" />
-          <span className="hidden sm:inline">Create New Manager</span>
-          <span className="sm:hidden">Add Manager</span>
-        </button>
       </div>
 
       {/* ---------------- Quotation Stats Grid ---------------- */}
@@ -254,7 +214,12 @@ export default function AdminDashboard() {
           >
             <div>
               <p className="text-gray-400">{item.title}</p>
-              <h2 className="text-4xl font-bold mt-2">{item.value}</h2>
+              <h2 className="text-4xl font-bold mt-2">
+                {item.title === "Total Quotations" ? quoteStats.total :
+                 item.title === "Pending" ? quoteStats.pending :
+                 item.title === "Approved" ? quoteStats.approved :
+                 item.title === "Rejected" ? quoteStats.rejected : item.value}
+              </h2>
               <p
                 className={`text-sm mt-1 ${
                   item.change.includes("-") ? "text-red-400" : "text-green-400"
@@ -287,7 +252,7 @@ export default function AdminDashboard() {
               <div>
                 <p className="text-gray-300">{item.title}</p>
                 <h2 className="text-4xl font-bold mt-2 text-white">
-                  {displayValue}
+                  {item.title === "Win Quotations" ? quoteStats.win : displayValue}
                 </h2>
                 <p
                   className={`text-sm mt-1 ${
@@ -438,22 +403,6 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* Create Manager Form Modal */}
-      {showCreateManagerForm && (
-        <CreateManagerForm
-          onClose={() => setShowCreateManagerForm(false)}
-          onSubmit={handleCreateManager}
-        />
-      )}
-
-      {/* Success/Error Dialog */}
-      <SuccessErrorDialog 
-        show={dialog.show}
-        title={dialog.title}
-        message={dialog.message}
-        type={dialog.type}
-        onClose={() => setDialog({ ...dialog, show: false })}
-      />
     </div>
   );
 }

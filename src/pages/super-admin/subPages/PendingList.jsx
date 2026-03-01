@@ -1,297 +1,277 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import SuperAdminNavbar from "../../../components/SuperAdminNavbar";
-import { FiSearch, FiFilter, FiX, FiUser, FiDollarSign, FiCalendar, FiClock, FiChevronRight, FiAlertCircle } from 'react-icons/fi';
+import {
+  FiSearch,
+  FiX,
+  FiFileText,
+  FiUser,
+  FiClock,
+  FiAlertCircle,
+  FiCheck,
+} from "react-icons/fi";
+import API, { getQuotations, generateQuotationPdf } from "../../../api/api";
 
 const PendingList = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedQuotation, setSelectedQuotation] = useState(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [filters, setFilters] = useState({
-    salesperson: 'all',
-    area: 'all',
-    daysPending: 'all',
-    sortBy: 'daysPending',
-    sortOrder: 'desc'
-  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [quotations, setQuotations] = useState([]);
+  
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
   const navigate = useNavigate();
 
-  // Dummy data for pending quotations
-  const pendingQuotations = useMemo(() => [
-    {
-      id: 'QT-P101',
-      customer: 'Retail Chain Stores',
-      salesperson: 'John Doe',
-      area: 'North America',
-      service: 'POS System Upgrade',
-      date: '2024-01-10',
-      daysPending: 7,
-      amount: '$30,000',
-      priority: 'high',
-      lastFollowUp: '2024-01-14',
-      status: 'awaiting_approval',
-      description: 'Enterprise POS system with inventory management',
-      managerAssigned: 'Emma Rodriguez'
-    },
-    {
-      id: 'QT-P102',
-      customer: 'Food Delivery Network',
-      salesperson: 'Sarah M.',
-      area: 'Europe',
-      service: 'Mobile App Development',
-      date: '2024-01-09',
-      daysPending: 8,
-      amount: '$25,000',
-      priority: 'high',
-      lastFollowUp: '2024-01-15',
-      status: 'awaiting_approval',
-      description: 'Food delivery app for iOS & Android platforms',
-      managerAssigned: 'Sophia Williams'
-    },
-    {
-      id: 'QT-P103',
-      customer: 'Smart Home Solutions',
-      salesperson: 'Mike R.',
-      area: 'Asia Pacific',
-      service: 'IoT Integration',
-      date: '2024-01-08',
-      daysPending: 9,
-      amount: '$14,800',
-      priority: 'medium',
-      lastFollowUp: '2024-01-13',
-      status: 'awaiting_approval',
-      description: 'Smart home automation system integration',
-      managerAssigned: 'James Wilson'
-    },
-    {
-      id: 'QT-P104',
-      customer: 'Digital Marketing Agency',
-      salesperson: 'Emily T.',
-      area: 'South America',
-      service: 'SEO Campaign',
-      date: '2024-01-12',
-      daysPending: 5,
-      amount: '$8,000',
-      priority: 'low',
-      lastFollowUp: '2024-01-14',
-      status: 'awaiting_approval',
-      description: '6-month SEO optimization campaign',
-      managerAssigned: 'Emma Rodriguez'
-    },
-    {
-      id: 'QT-P105',
-      customer: 'Cloud Services Inc',
-      salesperson: 'David L.',
-      area: 'Middle East',
-      service: 'Cloud Migration',
-      date: '2024-01-11',
-      daysPending: 6,
-      amount: '$35,000',
-      priority: 'high',
-      lastFollowUp: '2024-01-15',
-      status: 'awaiting_approval',
-      description: 'Full infrastructure migration to cloud',
-      managerAssigned: 'Michael Brown'
-    },
-  ], []);
+  // Modal & Action States
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedQuotation, setSelectedQuotation] = useState(null);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [selectedQuoteId, setSelectedQuoteId] = useState(null);
+  const [rejecting, setRejecting] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(null);
 
-  // Get unique values for filters
-  const salespersons = useMemo(() => {
-    const unique = [...new Set(pendingQuotations.map(q => q.salesperson))];
-    return unique;
-  }, [pendingQuotations]);
+  // Safe access helper
+  const getVal = (val, field) => {
+    if (!val) return 'N/A';
+    if (typeof val === 'object') return val[field] || 'N/A';
+    return val;
+  };
 
-  const areas = useMemo(() => {
-    const unique = [...new Set(pendingQuotations.map(q => q.area))];
-    return unique;
-  }, [pendingQuotations]);
-
-  const daysOptions = [
-    { value: 'all', label: 'All Days' },
-    { value: 'overdue', label: 'Overdue (>7 days)' },
-    { value: '5-7', label: '5-7 days' },
-    { value: '1-4', label: '1-4 days' },
-  ];
-
-  // Filter and sort quotations
-  const filteredQuotations = useMemo(() => {
-    let result = [...pendingQuotations];
-    
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(quote =>
-        quote.customer.toLowerCase().includes(query) ||
-        quote.id.toLowerCase().includes(query) ||
-        quote.salesperson.toLowerCase().includes(query) ||
-        quote.service.toLowerCase().includes(query) ||
-        quote.managerAssigned.toLowerCase().includes(query)
-      );
+  const handleViewPdf = async (id) => {
+    try {
+      setDownloadingPdf(id);
+      const response = await generateQuotationPdf(id);
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error("Error viewing PDF:", err);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setDownloadingPdf(null);
     }
-    
-    // Apply salesperson filter
-    if (filters.salesperson !== 'all') {
-      result = result.filter(quote => quote.salesperson === filters.salesperson);
-    }
-    
-    // Apply area filter
-    if (filters.area !== 'all') {
-      result = result.filter(quote => quote.area === filters.area);
-    }
-    
-    // Apply days pending filter
-    if (filters.daysPending !== 'all') {
-      switch(filters.daysPending) {
-        case 'overdue':
-          result = result.filter(quote => quote.daysPending > 7);
-          break;
-        case '5-7':
-          result = result.filter(quote => quote.daysPending >= 5 && quote.daysPending <= 7);
-          break;
-        case '1-4':
-          result = result.filter(quote => quote.daysPending >= 1 && quote.daysPending <= 4);
-          break;
+  };
+
+  const handleApprove = async (id) => {
+    if (window.confirm("Are you sure you want to approve this quotation?")) {
+      try {
+        const res = await API.post(`/quotations/${id}/approve`);
+        if (res.data.success) {
+          alert(`Quotation ${id} has been approved!`);
+          fetchPendingQuotations();
+        }
+      } catch (err) {
+        console.error("Error approving quotation:", err);
+        alert("Failed to approve quotation");
       }
-    }
-    
-    // Apply sorting
-    result.sort((a, b) => {
-      let comparison = 0;
-      
-      switch (filters.sortBy) {
-        case 'daysPending':
-          comparison = b.daysPending - a.daysPending;
-          break;
-        case 'date':
-          comparison = new Date(b.date) - new Date(a.date);
-          break;
-        case 'amount':
-          comparison = parseFloat(b.amount.replace('$', '').replace(',', '')) - 
-                     parseFloat(a.amount.replace('$', '').replace(',', ''));
-          break;
-        case 'salesperson':
-          comparison = a.salesperson.localeCompare(b.salesperson);
-          break;
-        case 'priority':
-          {
-            const priorityOrder = { high: 3, medium: 2, low: 1 };
-            comparison = priorityOrder[b.priority] - priorityOrder[a.priority];
-          }
-          break;
-        default:
-          comparison = b.daysPending - a.daysPending;
-      }
-      
-      return filters.sortOrder === 'asc' ? comparison : -comparison;
-    });
-    
-    return result;
-  }, [pendingQuotations, searchQuery, filters]);
-
-  const handleQuotationClick = (quotation) => {
-    setSelectedQuotation(quotation);
-    setShowDetailsModal(true);
-  };
-
-  const getPriorityColor = (priority) => {
-    switch(priority) {
-      case 'high':
-        return 'bg-red-500/20 text-red-300 border-red-500/30';
-      case 'medium':
-        return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
-      case 'low':
-        return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-      default:
-        return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
-    }
-  };
-
-  const getDaysColor = (days) => {
-    if (days > 7) return 'bg-red-500/20 text-red-300';
-    if (days > 5) return 'bg-orange-500/20 text-orange-300';
-    if (days > 3) return 'bg-yellow-500/20 text-yellow-300';
-    return 'bg-blue-500/20 text-blue-300';
-  };
-
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'awaiting_approval':
-        return 'bg-yellow-500/20 text-yellow-300';
-      case 'under_review':
-        return 'bg-blue-500/20 text-blue-300';
-      case 'pending_documents':
-        return 'bg-orange-500/20 text-orange-300';
-      default:
-        return 'bg-gray-500/20 text-gray-300';
-    }
-  };
-
-  const handleApprove = (id) => {
-    if (window.confirm(`Are you sure you want to approve quotation ${id}?`)) {
-      alert(`Quotation ${id} has been approved!`);
-      // In real app, make API call here
     }
   };
 
   const handleReject = (id) => {
-    if (window.confirm(`Are you sure you want to reject quotation ${id}?`)) {
-      alert(`Quotation ${id} has been rejected!`);
-      // In real app, make API call here
+    setSelectedQuoteId(id);
+    setRejectionReason("");
+    setShowRejectModal(true);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectionReason.trim()) {
+      alert("Please provide a reason for rejection.");
+      return;
     }
+
+    try {
+      setRejecting(true);
+      const res = await API.post(`/quotations/${selectedQuoteId}/reject`, { 
+        rejection_reason: rejectionReason 
+      });
+      
+      if (res.data.success) {
+        alert(`Quotation ${selectedQuoteId} has been rejected.`);
+        setShowRejectModal(false);
+        fetchPendingQuotations();
+      }
+    } catch (err) {
+      console.error("Error rejecting quotation:", err);
+      alert("Failed to reject quotation. Please try again.");
+    } finally {
+      setRejecting(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPendingQuotations();
+  }, []);
+
+  const fetchPendingQuotations = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const quotesRes = await getQuotations();
+
+      if (quotesRes.data) {
+        const allQuotes = quotesRes.data.data || quotesRes.data.quotations || quotesRes.data || [];
+        
+        // Filter for pending status
+        const pendingQuotes = allQuotes.filter(quote => {
+          const status = (quote.status || "").toLowerCase();
+          return status === 'pending' || status === 'submitted' || status === 'revised';
+        });
+
+        setQuotations(pendingQuotes);
+      }
+    } catch (err) {
+      console.error("Error fetching pending quotations:", err);
+      setError("Failed to load pending quotations");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const pendingQuotations = quotations;
+
+  // Filter quotations based on search
+  const filteredQuotations = useMemo(() => {
+    if (!searchQuery) return pendingQuotations;
+
+    const query = searchQuery.toLowerCase();
+    return pendingQuotations.filter(
+      (quote) =>
+      (quote.client_name || quote.customer || "").toLowerCase().includes(query) ||
+      String(quote.id).toLowerCase().includes(query) ||
+      (quote.service_name || quote.service || "").toLowerCase().includes(query) ||
+      (quote.user?.name || quote.salesperson || "").toLowerCase().includes(query) ||
+      (quote.client_email || quote.customerEmail || "").toLowerCase().includes(query),
+    );
+  }, [pendingQuotations, searchQuery]);
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case "high":
+        return "bg-red-500/20 text-red-300 border-red-500/30";
+      case "medium":
+        return "bg-yellow-500/20 text-yellow-300 border-yellow-500/30";
+      case "low":
+        return "bg-blue-500/20 text-blue-300 border-blue-500/30";
+      default:
+        return "bg-gray-500/20 text-gray-300 border-gray-500/30";
+    }
+  };
+
+  const getDaysPendingColor = (days) => {
+    if (days > 10) return "bg-red-500/20 text-red-300";
+    if (days > 5) return "bg-orange-500/20 text-orange-300";
+    return "bg-yellow-500/20 text-yellow-300";
+  };
+
+  // Clear search
+  const clearSearch = () => {
+    setSearchQuery("");
   };
 
   return (
     <div className="bg-gray-900 min-h-screen text-white">
       {/* Navbar */}
       <SuperAdminNavbar open={sidebarOpen} setOpen={setSidebarOpen} />
-      
+
       {/* Main Content */}
-      <div className={`transition-all duration-300 lg:ml-64 lg:-mt-135 ${sidebarOpen ? 'overflow-hidden' : ''}`}>
+      <div
+        className={`transition-all duration-300 lg:ml-64 lg:-mt-135 ${sidebarOpen ? "overflow-hidden" : ""}`}
+      >
+        {/* Mobile Top Spacer */}
         <div className="h-16 lg:h-0"></div>
-        
-        <div className={`p-4 sm:p-6 ${sidebarOpen ? 'overflow-hidden' : ''}`}>
+
+        {/* Content Container */}
+        <div className={`p-4 sm:p-6 lg:pt-0 ${sidebarOpen ? "overflow-hidden" : ""}`}>
           
-          <div className={`p-4 sm:p-6 ${sidebarOpen ? 'overflow-hidden' : ''}`}>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center min-h-[400px]">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+              <p className="text-gray-400">Loading pending quotations...</p>
+            </div>
+          ) : error ? (
+            <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-6 text-center">
+              <p className="text-red-400 mb-4">{error}</p>
+              <button 
+                onClick={fetchPendingQuotations}
+                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          ) : (
+            <>
+          <div className="p-4 sm:p-6">
             {/* Header */}
             <div className="mb-6 flex justify-between items-start">
-                
-                {/* Left Text */}
-                <div>
+              {/* Left Text */}
+              <div>
                 <h1 className="text-2xl sm:text-3xl font-bold">Pending Quotations</h1>
                 <p className="text-gray-400 mt-1">
-                    Quotations awaiting approval or follow-up
+                  All pending quotations awaiting approval in the system
                 </p>
-                </div>
+              </div>
 
-                {/* Right Button */}
-                <button 
+              {/* Right Button */}
+              <button
                 onClick={() => navigate(-1)}
                 className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-                >
-                ← Back to Dashboard
-                </button>
-
+              >
+                ← Back
+              </button>
             </div>
+          </div>
+
+          {/* Summary Stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+              <p className="text-gray-400 text-sm sm:text-base">Total Pending</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mt-1 sm:mt-2">{pendingQuotations.length}</h2>
+              <p className="text-yellow-400 text-xs sm:text-sm mt-1">Awaiting approval</p>
             </div>
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+              <p className="text-gray-400 text-sm sm:text-base">High Priority</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mt-1 sm:mt-2">
+                {pendingQuotations.filter(q => (q.priority || "").toLowerCase() === 'high').length}
+              </h2>
+              <p className="text-red-400 text-xs sm:text-sm mt-1">Requires attention</p>
+            </div>
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+              <p className="text-gray-400 text-sm sm:text-base">Total Value</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mt-1 sm:mt-2">
+                Rs. {pendingQuotations.reduce((sum, q) => sum + parseFloat(q.final_amount || q.total_amount || 0), 0).toLocaleString()}
+              </h2>
+              <p className="text-purple-400 text-xs sm:text-sm mt-1">Pending amount</p>
+            </div>
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+              <p className="text-gray-400 text-sm sm:text-base">Avg Days Pending</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mt-1 sm:mt-2">
+                {pendingQuotations.length > 0 
+                  ? (pendingQuotations.reduce((sum, q) => {
+                      const days = Math.floor((new Date() - new Date(q.created_at || new Date())) / (1000 * 60 * 60 * 24));
+                      return sum + days;
+                    }, 0) / pendingQuotations.length).toFixed(1)
+                  : "0.0"}
+              </h2>
+              <p className="text-blue-400 text-xs sm:text-sm mt-1">Days average</p>
+            </div>
+          </div>
 
-
-          {/* Search and Filter Bar */}
+          {/* Search Bar */}
           <div className="bg-gray-800 rounded-lg sm:rounded-xl border border-gray-700 p-4 mb-6">
             <div className="flex flex-col gap-4">
-              {/* Search Bar */}
               <div className="relative">
                 <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search by customer, quotation ID, or salesperson..."
+                  placeholder="Search pending quotations by customer, ID, service, or salesperson..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
                 {searchQuery && (
                   <button
-                    onClick={() => setSearchQuery('')}
+                    onClick={clearSearch}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
                   >
                     <FiX />
@@ -299,215 +279,102 @@ const PendingList = () => {
                 )}
               </div>
 
-              {/* Filter Controls */}
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 flex flex-col sm:flex-row gap-3">
-                  {/* Salesperson Filter */}
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">Salesperson</label>
-                    <select
-                      value={filters.salesperson}
-                      onChange={(e) => setFilters({...filters, salesperson: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      <option value="all">All Salespersons</option>
-                      {salespersons.map(sp => (
-                        <option key={sp} value={sp}>{sp}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Area Filter */}
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">Area</label>
-                    <select
-                      value={filters.area}
-                      onChange={(e) => setFilters({...filters, area: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      <option value="all">All Areas</option>
-                      {areas.map(area => (
-                        <option key={area} value={area}>{area}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Days Pending Filter */}
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">Days Pending</label>
-                    <select
-                      value={filters.daysPending}
-                      onChange={(e) => setFilters({...filters, daysPending: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      {daysOptions.map(option => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Sort By */}
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">Sort By</label>
-                    <select
-                      value={filters.sortBy}
-                      onChange={(e) => setFilters({...filters, sortBy: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      <option value="daysPending">Days Pending</option>
-                      <option value="priority">Priority</option>
-                      <option value="date">Date</option>
-                      <option value="amount">Amount</option>
-                      <option value="salesperson">Salesperson</option>
-                    </select>
-                  </div>
-
-                  {/* Sort Order */}
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">Order</label>
-                    <select
-                      value={filters.sortOrder}
-                      onChange={(e) => setFilters({...filters, sortOrder: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      <option value="desc">Highest First</option>
-                      <option value="asc">Lowest First</option>
-                    </select>
-                  </div>
+              {/* Search Results Info */}
+              {searchQuery && (
+                <div className="flex items-center justify-between pt-2 border-t border-gray-700">
+                  <span className="text-xs text-gray-400">
+                    Found {filteredQuotations.length} result
+                    {filteredQuotations.length !== 1 ? "s" : ""} for "
+                    {searchQuery}"
+                  </span>
+                  <button
+                    onClick={clearSearch}
+                    className="text-xs text-blue-400 hover:text-blue-300"
+                  >
+                    Clear search
+                  </button>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Stats Summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-            <div className="bg-gradient-to-br from-yellow-900/30 to-amber-900/30 p-4 rounded-xl border border-yellow-700/30">
-              <p className="text-gray-400 text-sm">Total Pending</p>
-              <p className="text-2xl font-bold text-yellow-400">{pendingQuotations.length}</p>
-            </div>
-            <div className="bg-gradient-to-br from-red-900/30 to-rose-900/30 p-4 rounded-xl border border-red-700/30">
-              <p className="text-gray-400 text-sm">High Priority</p>
-              <p className="text-2xl font-bold text-red-400">
-                {pendingQuotations.filter(q => q.priority === 'high').length}
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-blue-900/30 to-cyan-900/30 p-4 rounded-xl border border-blue-700/30">
-              <p className="text-gray-400 text-sm">Overdue (7 days)</p>
-              <p className="text-2xl font-bold text-blue-400">
-                {pendingQuotations.filter(q => q.daysPending > 7).length}
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 p-4 rounded-xl border border-purple-700/30">
-              <p className="text-gray-400 text-sm">Avg. Days Pending</p>
-              <p className="text-2xl font-bold text-purple-400">
-                {(pendingQuotations.reduce((sum, q) => sum + q.daysPending, 0) / pendingQuotations.length).toFixed(1)}
-              </p>
+              )}
             </div>
           </div>
 
           {/* Results Summary */}
           <div className="mb-4 flex justify-between items-center">
             <p className="text-gray-400 text-sm">
-              Showing {filteredQuotations.length} of {pendingQuotations.length} pending quotations
+              Showing {filteredQuotations.length} of {pendingQuotations.length}{" "}
+              pending quotations
             </p>
-            {filteredQuotations.some(q => q.daysPending > 7) && (
-              <div className="flex items-center gap-2 text-red-400 text-sm">
-                <FiAlertCircle className="w-4 h-4" />
-                <span>Some quotations are overdue!</span>
-              </div>
-            )}
           </div>
 
-          {/* Quotations Table */}
+          {/* Table Container */}
           <div className="bg-gray-800 rounded-lg sm:rounded-xl border border-gray-700 shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-full">
                 {/* Desktop Headers */}
                 <thead className="bg-gray-700 hidden sm:table-header-group">
                   <tr>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Quotation ID</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Customer</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Service</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Days Pending</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Amount</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Priority</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm"></th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">ID</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Customer</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Date</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Amount</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Status</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Actions</th>
                   </tr>
                 </thead>
-                
+
                 {/* Mobile Headers */}
                 <thead className="bg-gray-700 sm:hidden">
                   <tr>
-                    <th colSpan="2" className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">
+                    <th
+                      colSpan="2"
+                      className="px-4 py-3 text-left font-semibold text-gray-300 text-sm"
+                    >
                       Pending Quotations ({filteredQuotations.length})
                     </th>
                   </tr>
                 </thead>
-                
+
                 <tbody>
                   {filteredQuotations.map((quote) => (
-                    <>
+                    <React.Fragment key={quote.id}>
                       {/* Mobile View - Card Layout */}
-                      <tr key={`mobile-${quote.id}`} className="sm:hidden border-b border-gray-700 hover:bg-gray-750 transition-colors duration-200">
+                      <tr className="sm:hidden border-b border-gray-700">
                         <td colSpan="2" className="p-4">
-                          <div 
-                            className="space-y-3 cursor-pointer"
-                            onClick={() => handleQuotationClick(quote)}
-                          >
+                          <div className="space-y-3">
                             <div className="flex justify-between items-start">
                               <div>
-                                <h3 className="font-bold text-yellow-400">{quote.id}</h3>
-                                <h4 className="font-semibold text-white mt-1">{quote.customer}</h4>
-                                <p className="text-gray-400 text-sm">{quote.service}</p>
+                                <span className="font-bold text-blue-400">{quote.id}</span>
+                                <h3 className="font-semibold text-white mt-1">{getVal(quote.client || quote.customer, 'name') || quote.client_name || 'N/A'}</h3>
+                                <p className="text-gray-400 text-sm">{getVal(quote.client || quote.customer, 'email') || quote.client_email || 'N/A'}</p>
                               </div>
-                              <FiChevronRight className="text-gray-400" />
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(quote.priority || 'medium')} flex items-center gap-1`}>
+                                <FiAlertCircle className="text-xs" />
+                                {(quote.priority || 'medium').charAt(0).toUpperCase() + (quote.priority || 'medium').slice(1)}
+                              </span>
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-gray-400 text-xs">Salesperson</p>
-                                <p className="text-purple-300 text-sm">{quote.salesperson}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-400 text-xs">Days Pending</p>
-                                <span className={`px-2 py-1 rounded text-xs font-medium ${getDaysColor(quote.daysPending)}`}>
-                                  {quote.daysPending} days
-                                </span>
-                              </div>
+                            <div className="flex items-center gap-2">
+                              <FiUser className="text-purple-300 text-xs" />
+                              <p className="text-purple-300 text-sm font-medium">{getVal(quote.user || quote.salesperson, 'name')}</p>
+                            </div>
+
+                            <div className="flex justify-between items-center">
+                              <p className="font-bold text-white text-sm">Rs. {parseFloat(quote.final_amount || quote.total_amount || 0).toLocaleString()}</p>
+                              <p className={`px-2 py-1 rounded text-xs ${getDaysPendingColor(Math.floor((new Date() - new Date(quote.created_at || new Date())) / (1000 * 60 * 60 * 24)))}`}>
+                                {Math.floor((new Date() - new Date(quote.created_at || new Date())) / (1000 * 60 * 60 * 24))} days pending
+                              </p>
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-gray-400 text-xs">Amount</p>
-                                <p className="font-bold text-white text-sm">{quote.amount}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-400 text-xs">Priority</p>
-                                <span className={`px-2 py-1 rounded text-xs font-medium border ${getPriorityColor(quote.priority)}`}>
-                                  {quote.priority}
-                                </span>
-                              </div>
-                            </div>
-                            
-                            <div className="pt-2 flex gap-2">
+                            <div className="pt-2">
                               <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleApprove(quote.id);
+                                onClick={() => {
+                                  setSelectedQuotation(quote);
+                                  setShowDetailsModal(true);
                                 }}
-                                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded text-sm font-medium transition-colors"
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-medium transition-colors"
                               >
-                                Approve
-                              </button>
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleReject(quote.id);
-                                }}
-                                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded text-sm font-medium transition-colors"
-                              >
-                                Reject
+                                View Details
                               </button>
                             </div>
                           </div>
@@ -515,72 +382,61 @@ const PendingList = () => {
                       </tr>
                       
                       {/* Desktop/Tablet View - Table Layout */}
-                      <tr key={`desktop-${quote.id}`} className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
-                        <td className="px-6 py-4">
-                          <div 
-                            className="font-bold text-yellow-400 cursor-pointer hover:text-yellow-300 transition-colors"
-                            onClick={() => handleQuotationClick(quote)}
-                          >
-                            {quote.id}
-                          </div>
+                      <tr className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
+                        <td className="px-4 py-3">
+                          <span className="font-bold text-blue-400 text-sm">#{quote.id}</span>
                         </td>
-                        <td className="px-6 py-4">
-                          <div 
-                            className="font-semibold text-white cursor-pointer hover:text-blue-300 transition-colors"
-                            onClick={() => handleQuotationClick(quote)}
-                          >
-                            {quote.customer}
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">{quote.description}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-green-400 font-medium text-sm">{quote.service}</span>
-                        </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <FiUser className="w-4 h-4 text-purple-400" />
-                            <span className="text-purple-300 text-sm">{quote.salesperson}</span>
+                            <FiUser className="text-purple-300" />
+                            <div>
+                                <div className="text-purple-300 text-sm font-medium">{getVal(quote.user || quote.salesperson, 'name')}</div>
+                                <div className="text-xs text-gray-400 font-mono">ID: #{quote.user_id || quote.salesperson_id || (typeof quote.user === 'object' ? quote.user.id : '')}</div>
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-400 mt-1">{quote.area}</div>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <FiClock className={`w-4 h-4 ${quote.daysPending > 7 ? 'text-red-400' : 'text-yellow-400'}`} />
-                            <span className={`px-3 py-1 rounded text-xs font-medium ${getDaysColor(quote.daysPending)}`}>
-                              {quote.daysPending} days
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-white text-sm">{getVal(quote.client || quote.customer, 'name') || quote.client_name || 'N/A'}</div>
+                          <div className="text-xs text-gray-400 truncate max-w-[150px]">{getVal(quote.client || quote.customer, 'email') || quote.client_email || 'N/A'}</div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-300 text-sm">
+                          {quote.quotation_date || quote.created_at?.split('T')[0] || 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 font-bold text-white text-sm">Rs. {parseFloat(quote.final_amount || quote.total_amount || 0).toLocaleString()}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-1">
+                            <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 w-fit">
+                              Pending
                             </span>
                           </div>
-                          <div className="text-xs text-gray-500 mt-1">Since: {quote.date}</div>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <FiDollarSign className="w-4 h-4 text-yellow-400" />
-                            <span className="font-bold text-white">{quote.amount}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(quote.priority)}`}>
-                            {quote.priority}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
                             <button 
-                              onClick={() => handleApprove(quote.id)}
-                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+                                onClick={() => {
+                                  setSelectedQuotation(quote);
+                                  setShowDetailsModal(true);
+                                }}
+                                className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200"
+                                title="View Details"
                             >
-                              Approve
+                                Details
                             </button>
                             <button 
-                              onClick={() => handleQuotationClick(quote)}
-                              className="text-gray-400 hover:text-white transition-colors"
+                                onClick={() => handleViewPdf(quote.id)}
+                                disabled={downloadingPdf === quote.id}
+                                className="bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1"
+                                title="View PDF"
                             >
-                              <FiChevronRight className="w-5 h-5" />
+                                {downloadingPdf === quote.id ? (
+                                  <div className="w-3 h-3 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin"></div>
+                                ) : <FiFileText size={14} />}
+                                PDF
                             </button>
                           </div>
                         </td>
                       </tr>
-                    </>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
@@ -588,182 +444,204 @@ const PendingList = () => {
 
             {filteredQuotations.length === 0 && (
               <div className="text-center py-12">
-                <FiClock className="w-16 h-16 text-gray-600 mx-auto mb-4" />
+                <div className="text-3xl mb-4">⏳</div>
                 <p className="text-gray-400">No pending quotations found</p>
                 <p className="text-gray-500 text-sm mt-2">
-                  {searchQuery 
+                  {searchQuery
                     ? `No results found for "${searchQuery}". Try a different search term.`
-                    : 'No pending quotations in the system.'}
+                    : "All quotations have been approved or rejected."}
                 </p>
               </div>
             )}
           </div>
-
-          {/* Bulk Actions */}
-          {filteredQuotations.length > 0 && (
-            <div className="mt-6 bg-gray-800 p-4 rounded-xl border border-gray-700">
-              <h3 className="text-lg font-semibold mb-3">Bulk Actions</h3>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition-colors">
-                  Approve All Filtered ({filteredQuotations.length})
-                </button>
-                <button className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg text-sm font-medium transition-colors">
-                  Reject All Filtered ({filteredQuotations.length})
-                </button>
-                <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors">
-                  Send Follow-up Reminders
+            </>
+          )}
+        </div>
+        {/* Quotation Details Modal */}
+        {showDetailsModal && selectedQuotation && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm">
+            <div className="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200 flex flex-col">
+              {/* Modal Header */}
+              <div className="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center bg-gray-800/50">
+                <div className="pr-4">
+                  <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2 flex-wrap">
+                    Quotation Details <span className="text-blue-400 text-xs sm:text-sm font-mono bg-blue-400/10 px-2 py-0.5 rounded-md">#{selectedQuotation.id}</span>
+                  </h3>
+                  <p className="text-[10px] sm:text-xs text-gray-400 mt-1">Submitted on {selectedQuotation.quotation_date || getVal(selectedQuotation, 'created_at')?.split('T')[0]}</p>
+                </div>
+                <button 
+                  onClick={() => setShowDetailsModal(false)}
+                  className="p-2 hover:bg-gray-700 rounded-full transition-colors text-gray-400 hover:text-white shrink-0"
+                >
+                  <FiX size={20} />
                 </button>
               </div>
-            </div>
-          )}
 
-          {/* Quotation Details Modal */}
-          {showDetailsModal && selectedQuotation && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-              <div className="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                {/* Modal Header */}
-                <div className="p-6 border-b border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-2xl font-bold text-yellow-400">{selectedQuotation.id}</h2>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(selectedQuotation.priority)}`}>
-                          {selectedQuotation.priority} Priority
-                        </span>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedQuotation.status)}`}>
-                          {selectedQuotation.status.replace('_', ' ')}
-                        </span>
-                        <span className={`px-3 py-1 rounded text-xs font-medium ${getDaysColor(selectedQuotation.daysPending)}`}>
-                          {selectedQuotation.daysPending} days pending
-                        </span>
+              {/* Modal Body */}
+              <div className="p-4 sm:p-6 flex-1 overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                  {/* Client Info */}
+                  <div className="space-y-3 sm:space-y-4">
+                    <h4 className="text-[10px] sm:text-xs uppercase font-bold text-gray-500 tracking-wider">Client Information</h4>
+                    <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700/50">
+                      <p className="text-sm font-semibold text-white">{getVal(selectedQuotation.client || selectedQuotation.customer, 'name') || selectedQuotation.client_name || 'N/A'}</p>
+                      <p className="text-xs text-gray-400 mt-1 break-all">{getVal(selectedQuotation.client || selectedQuotation.customer, 'email') || selectedQuotation.client_email || 'N/A'}</p>
+                      <div className="mt-3 flex items-center gap-2 text-[11px] sm:text-xs text-gray-500">
+                        <FiUser size={12} className="shrink-0" />
+                        <span className="truncate">Salesperson: {getVal(selectedQuotation.user || selectedQuotation.salesperson, 'name') || 'N/A'}</span>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => setShowDetailsModal(false)}
-                      className="text-gray-400 hover:text-white text-2xl"
-                    >
-                      ×
-                    </button>
+                  </div>
+
+                  {/* Summary Info */}
+                  <div className="space-y-3 sm:space-y-4">
+                    <h4 className="text-[10px] sm:text-xs uppercase font-bold text-gray-500 tracking-wider">Summary</h4>
+                    <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700/50">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs text-gray-400 font-medium italic">Status</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
+                          {selectedQuotation.status || 'Pending'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs text-gray-400 font-medium italic">Discount</span>
+                        <span className="text-sm font-semibold text-red-400">
+                          - Rs. {parseFloat(selectedQuotation.total_discount || 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center border-t border-gray-700/50 pt-2">
+                        <span className="text-xs text-gray-400 font-medium italic">Final Total</span>
+                        <span className="text-base sm:text-lg font-bold text-white">Rs. {parseFloat(selectedQuotation.final_amount || selectedQuotation.total_amount || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Modal Body */}
-                <div className="p-6">
-                  {/* Quotation Information */}
-                  <div className="mb-8">
-                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Quotation Details</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <p className="text-sm text-gray-400">Customer</p>
-                        <p className="font-medium text-lg">{selectedQuotation.customer}</p>
-                      </div>
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <p className="text-sm text-gray-400">Salesperson</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <FiUser className="w-4 h-4 text-purple-400" />
-                          <p className="font-medium">{selectedQuotation.salesperson}</p>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-1">{selectedQuotation.area}</p>
-                      </div>
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <p className="text-sm text-gray-400">Service</p>
-                        <p className="font-medium text-green-400">{selectedQuotation.service}</p>
-                      </div>
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <p className="text-sm text-gray-400">Amount</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <FiDollarSign className="w-5 h-5 text-yellow-400" />
-                          <p className="font-bold text-2xl">{selectedQuotation.amount}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Timeline & Status */}
-                  <div className="mb-8">
-                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Status & Timeline</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 bg-yellow-900/20 rounded-lg border border-yellow-700/30">
-                        <div className="flex items-center gap-3">
-                          <FiCalendar className="w-5 h-5 text-yellow-400" />
+                {/* Items List */}
+                {selectedQuotation.items && Array.isArray(selectedQuotation.items) && selectedQuotation.items.length > 0 && (
+                  <div className="mt-8">
+                    <h4 className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-4">Detailed Line Items</h4>
+                    <div className="bg-gray-900/50 rounded-xl border border-gray-700/50 divide-y divide-gray-800">
+                      {selectedQuotation.items.map((item, idx) => (
+                        <div key={idx} className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-center">
                           <div>
-                            <p className="text-sm text-gray-400">Created Date</p>
-                            <p className="font-medium">{selectedQuotation.date}</p>
+                            <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tight">{getVal(item, 'category_name') || 'Category'}</p>
+                            <p className="text-sm font-bold text-white leading-tight">{getVal(item, 'product_name') || 'Product Name'}</p>
+                            {item.core_name && (
+                              <p className="text-[10px] text-purple-400 mt-0.5 bg-purple-400/10 px-1.5 py-0.5 rounded-md w-fit">Core: {item.core_name}</p>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-400 space-y-0.5">
+                            <p>Qty: <span className="text-gray-200 font-mono">{Number(item.quantity || 0)}</span></p>
+                            <p>Unit Price: <span className="text-gray-200 font-mono">Rs.{parseFloat(item.unit_price || item.price || 0).toLocaleString()}</span></p>
+                            <p>Discount: <span className="text-red-400 font-mono">Rs.{parseFloat(item.discount || item.discount_amount || 0).toLocaleString()}</span></p>
+                          </div>
+                          <div className="sm:text-right">
+                            <p className="text-[10px] text-gray-500 italic">Subtotal</p>
+                            <p className="text-base font-bold text-white">
+                              Rs. {(Number(item.quantity || 1) * parseFloat(item.unit_price || item.price || 0) - parseFloat(item.discount || item.discount_amount || 0)).toLocaleString()}
+                            </p>
                           </div>
                         </div>
-                      </div>
-                      <div className="p-4 bg-blue-900/20 rounded-lg border border-blue-700/30">
-                        <div className="flex items-center gap-3">
-                          <FiClock className="w-5 h-5 text-blue-400" />
-                          <div>
-                            <p className="text-sm text-gray-400">Last Follow-up</p>
-                            <p className="font-medium">{selectedQuotation.lastFollowUp}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <p className="text-sm text-gray-400">Manager Assigned</p>
-                        <p className="font-medium text-purple-400">{selectedQuotation.managerAssigned}</p>
-                      </div>
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <p className="text-sm text-gray-400">Days in Pending</p>
-                        <p className={`font-bold text-2xl ${selectedQuotation.daysPending > 7 ? 'text-red-400' : 'text-yellow-400'}`}>
-                          {selectedQuotation.daysPending} days
-                        </p>
-                      </div>
+                      ))}
                     </div>
                   </div>
+                )}
+              </div>
 
-                  {/* Description */}
-                  <div className="mb-8">
-                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Description</h3>
-                    <div className="p-4 bg-gray-750 rounded-lg">
-                      <p className="text-gray-300">{selectedQuotation.description}</p>
-                    </div>
-                  </div>
+              {/* Modal Footer */}
+              <div className="p-4 sm:p-6 border-t border-gray-700 bg-gray-800/50">
+                <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                  <button
+                    onClick={() => {
+                      setShowDetailsModal(false);
+                      handleViewPdf(selectedQuotation.id);
+                    }}
+                    className="w-full sm:w-auto px-4 py-2 bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 order-2 sm:order-1"
+                  >
+                    <FiFileText size={16} />
+                    View PDF
+                  </button>
+                  
+                  <div className="hidden sm:block sm:flex-1 order-2"></div>
 
-                  {/* Action Buttons */}
-                  <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <button 
+                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto order-1 sm:order-3">
+                    <button
                       onClick={() => {
-                        handleApprove(selectedQuotation.id);
                         setShowDetailsModal(false);
+                        handleReject(selectedQuotation.id);
                       }}
-                      className="p-3 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium transition-colors"
+                      className="w-full sm:w-auto px-6 py-2 bg-red-600/10 hover:bg-red-600/20 text-red-500 rounded-xl font-semibold border border-red-600/20 transition-all text-center"
+                    >
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowDetailsModal(false);
+                        handleApprove(selectedQuotation.id);
+                      }}
+                      className="w-full sm:w-auto px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-semibold shadow-lg shadow-green-600/20 transition-all text-center"
                     >
                       Approve Quotation
                     </button>
-                    <button 
-                      onClick={() => {
-                        handleReject(selectedQuotation.id);
-                        setShowDetailsModal(false);
-                      }}
-                      className="p-3 bg-red-600 hover:bg-red-700 rounded-lg text-white font-medium transition-colors"
-                    >
-                      Reject Quotation
-                    </button>
-                    <button className="p-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition-colors">
-                      Request More Info
-                    </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
 
-                {/* Modal Footer */}
-                <div className="p-6 border-t border-gray-700 flex justify-end gap-3">
-                  <button
-                    onClick={() => setShowDetailsModal(false)}
-                    className="px-6 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
+        {/* Rejection Modal */}
+        {showRejectModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div className="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <span className="w-8 h-8 bg-red-500/10 text-red-500 rounded-lg flex items-center justify-center text-lg">❌</span>
+                    Reject Quotation
+                  </h3>
+                  <button 
+                    onClick={() => setShowRejectModal(false)}
+                    className="text-gray-400 hover:text-white transition-colors"
                   >
-                    Close
+                    <FiX size={24} />
                   </button>
-                  <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                    Edit Quotation
+                </div>
+
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-400 mb-2">
+                    Reason for Rejection <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all min-h-[120px]"
+                    placeholder="Please explain why this quotation is being rejected..."
+                  ></textarea>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowRejectModal(false)}
+                    className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmReject}
+                    disabled={rejecting || !rejectionReason.trim()}
+                    className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-semibold shadow-lg shadow-red-600/20 transition-all flex items-center justify-center gap-2"
+                  >
+                    {rejecting ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    ) : "Confirm Reject"}
                   </button>
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

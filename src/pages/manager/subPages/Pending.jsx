@@ -1,9 +1,10 @@
 
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ManagerNavbar from "../../../components/ManagerNavbar";
-import { FiSearch, FiFilter, FiX } from 'react-icons/fi';
+import { FiSearch, FiFilter, FiX, FiFileText } from 'react-icons/fi';
+import API, { getQuotations, getTeamStats, generateQuotationPdf } from '../../../api/api';
 
 const Pending = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -16,121 +17,63 @@ const Pending = () => {
   });
   const navigate = useNavigate();
 
-  // Dummy data for pending quotations
-  const pendingQuotations = useMemo(() => [
-    {
-      id: 'QT-001',
-      salesperson: 'John D.',
-      salespersonId: 'SP-001',
-      customer: 'TechCorp Solutions',
-      email: 'contact@techcorp.com',
-      service: 'Website Redesign Project',
-      date: '2024-01-15',
-      amount: '$15,200',
-      submittedDate: '2024-01-15',
-      daysPending: 2,
-      priority: 'high',
-      description: 'Complete website overhaul with new features'
-    },
-    {
-      id: 'QT-002',
-      salesperson: 'Sarah M.',
-      salespersonId: 'SP-002',
-      customer: 'Global Logistics Inc',
-      email: 'procurement@globallogistics.com',
-      service: 'CRM System Implementation',
-      date: '2024-01-14',
-      amount: '$8,500',
-      submittedDate: '2024-01-14',
-      daysPending: 3,
-      priority: 'medium',
-      description: 'Custom CRM solution for logistics tracking'
-    },
-    {
-      id: 'QT-003',
-      salesperson: 'Mike R.',
-      salespersonId: 'SP-003',
-      customer: 'MediCare Hospital',
-      email: 'it@medicarehospital.com',
-      service: 'Medical Equipment Supply',
-      date: '2024-01-13',
-      amount: '$22,000',
-      submittedDate: '2024-01-13',
-      daysPending: 4,
-      priority: 'high',
-      description: 'Medical devices and software integration'
-    },
-    {
-      id: 'QT-004',
-      salesperson: 'Emily T.',
-      salespersonId: 'SP-004',
-      customer: 'EduTech Innovations',
-      email: 'admin@edutech.com',
-      service: 'Learning Management System',
-      date: '2024-01-12',
-      amount: '$12,500',
-      submittedDate: '2024-01-12',
-      daysPending: 5,
-      priority: 'low',
-      description: 'Custom LMS platform with analytics'
-    },
-    {
-      id: 'QT-005',
-      salesperson: 'David L.',
-      salespersonId: 'SP-005',
-      customer: 'Green Energy Corp',
-      email: 'sales@greenenergy.com',
-      service: 'Solar Panel Installation',
-      date: '2024-01-11',
-      amount: '$18,300',
-      submittedDate: '2024-01-11',
-      daysPending: 6,
-      priority: 'medium',
-      description: 'Commercial solar power system'
-    },
-    {
-      id: 'QT-006',
-      salesperson: 'John D.',
-      salespersonId: 'SP-001',
-      customer: 'Retail Chain Stores',
-      email: 'it@retailchain.com',
-      service: 'POS System Upgrade',
-      date: '2024-01-10',
-      amount: '$30,000',
-      submittedDate: '2024-01-10',
-      daysPending: 7,
-      priority: 'high',
-      description: 'Enterprise POS system with inventory'
-    },
-    {
-      id: 'QT-007',
-      salesperson: 'Sarah M.',
-      salespersonId: 'SP-002',
-      customer: 'Food Delivery Network',
-      email: 'tech@foodnetwork.com',
-      service: 'Mobile App Development',
-      date: '2024-01-09',
-      amount: '$25,000',
-      submittedDate: '2024-01-09',
-      daysPending: 8,
-      priority: 'high',
-      description: 'Food delivery app for iOS & Android'
-    },
-    {
-      id: 'QT-008',
-      salesperson: 'Mike R.',
-      salespersonId: 'SP-003',
-      customer: 'Smart Home Solutions',
-      email: 'info@smarthome.com',
-      service: 'IoT Integration',
-      date: '2024-01-08',
-      amount: '$14,800',
-      submittedDate: '2024-01-08',
-      daysPending: 9,
-      priority: 'medium',
-      description: 'Smart home automation system'
-    },
-  ], []);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [quotations, setQuotations] = useState([]);
+  const [downloadingPdf, setDownloadingPdf] = useState(null);
+  
+  // Rejection Modal State
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [selectedQuoteId, setSelectedQuoteId] = useState(null);
+  const [rejecting, setRejecting] = useState(false);
+  
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userId = String(user.id || "");
+
+  useEffect(() => {
+    fetchPendingQuotations();
+  }, []);
+
+  const fetchPendingQuotations = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [quotesRes, statsRes] = await Promise.all([
+        getQuotations(),
+        getTeamStats()
+      ]);
+
+      if (quotesRes.data && statsRes.data) {
+        const allQuotes = quotesRes.data.data || quotesRes.data.quotations || quotesRes.data || [];
+        const myTeam = statsRes.data.dashboard_stats?.my_team || [];
+        
+        // Get IDs of all salespersons in this manager's team (including the manager themselves)
+        const teamMemberIds = myTeam
+          .filter(member => String(member.manager_id) === userId || String(member.parent_id) === userId || String(member.id) === userId)
+          .map(member => String(member.id));
+        
+        if (!teamMemberIds.includes(userId)) teamMemberIds.push(userId);
+
+        // Filter quotations: created by a team member AND status is pending
+        const pendingQuotes = allQuotes.filter(quote => {
+          const creatorId = String(quote.user_id || quote.salesperson_id || quote.user?.id || "");
+          const status = (quote.status || "").toLowerCase();
+          return teamMemberIds.includes(creatorId) && (status === 'pending' || status === 'submitted');
+        });
+
+        setQuotations(pendingQuotes);
+      }
+    } catch (err) {
+      console.error("Error fetching pending quotations:", err);
+      setError("Failed to load pending quotations");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const pendingQuotations = quotations;
 
   // Get unique salespersons for filter
   const salespersons = useMemo(() => {
@@ -149,11 +92,11 @@ const Pending = () => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(quote =>
-        quote.customer.toLowerCase().includes(query) ||
-        quote.id.toLowerCase().includes(query) ||
-        quote.service.toLowerCase().includes(query) ||
-        quote.salesperson.toLowerCase().includes(query) ||
-        quote.description.toLowerCase().includes(query)
+        (quote.client_name || quote.customer || "").toLowerCase().includes(query) ||
+        String(quote.id).toLowerCase().includes(query) ||
+        (quote.service_name || quote.service || "").toLowerCase().includes(query) ||
+        (quote.user?.name || quote.salesperson || "").toLowerCase().includes(query) ||
+        (quote.description || "").toLowerCase().includes(query)
       );
     }
     
@@ -177,8 +120,8 @@ const Pending = () => {
           break;
         case 'amount':
           {
-            comparison = parseFloat(b.amount.replace('$', '').replace(',', '')) - 
-                     parseFloat(a.amount.replace('$', '').replace(',', ''));
+            comparison = parseFloat(String(b.final_amount || b.total_amount || 0).replace('$', '').replace(',', '')) - 
+                         parseFloat(String(a.final_amount || a.total_amount || 0).replace('$', '').replace(',', ''));
           }
           break;
         case 'salesperson':
@@ -187,11 +130,17 @@ const Pending = () => {
         case 'priority':
           {
             const priorityOrder = { high: 3, medium: 2, low: 1 };
-            comparison = priorityOrder[b.priority] - priorityOrder[a.priority];
+            const priorityA = (a.priority || 'medium').toLowerCase();
+            const priorityB = (b.priority || 'medium').toLowerCase();
+            comparison = (priorityOrder[priorityB] || 0) - (priorityOrder[priorityA] || 0);
           }
           break;
-        case 'daysPending':
-          comparison = b.daysPending - a.daysPending;
+          {
+            const dateB = new Date(b.created_at || b.date);
+            const dateA = new Date(a.created_at || a.date);
+            comparison = Math.floor((new Date() - dateB) / (1000 * 60 * 60 * 24)) - 
+                         Math.floor((new Date() - dateA) / (1000 * 60 * 60 * 24));
+          }
           break;
         default:
           comparison = new Date(b.date) - new Date(a.date);
@@ -240,19 +189,76 @@ const Pending = () => {
     { value: 'daysPending', label: 'Days Pending' }
   ];
 
-  // Handle approve action
-  const handleApprove = (id) => {
-    if (window.confirm(`Are you sure you want to approve quotation ${id}?`)) {
-      alert(`Quotation ${id} has been approved!`);
-      // In real app, make API call here
+  // Handle PDF Download
+  const handleDownloadPdf = async (id) => {
+    try {
+      setDownloadingPdf(id);
+      const response = await generateQuotationPdf(id);
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Quotation-${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error downloading PDF:", err);
+      alert("Failed to download PDF. Please try again.");
+    } finally {
+      setDownloadingPdf(null);
     }
   };
 
-  // Handle reject action
+  // Handle approve action
+  const handleApprove = async (id) => {
+    if (window.confirm(`Are you sure you want to approve quotation ${id}?`)) {
+      try {
+        const res = await API.post(`/quotations/${id}/approve`);
+        if (res.data.success) {
+          alert(`Quotation ${id} has been approved!`);
+          fetchPendingQuotations();
+        }
+      } catch (err) {
+        console.error("Error approving quotation:", err);
+        alert("Failed to approve quotation");
+      }
+    }
+  };
+
+  // Handle reject action (Open Modal)
   const handleReject = (id) => {
-    if (window.confirm(`Are you sure you want to reject quotation ${id}?`)) {
-      alert(`Quotation ${id} has been rejected!`);
-      // In real app, make API call here
+    setSelectedQuoteId(id);
+    setRejectionReason("");
+    setShowRejectModal(true);
+  };
+
+  // Confirm rejection with reason
+  const confirmReject = async () => {
+    if (!rejectionReason.trim()) {
+      alert("Please provide a reason for rejection.");
+      return;
+    }
+
+    try {
+      setRejecting(true);
+      const res = await API.post(`/quotations/${selectedQuoteId}/reject`, { 
+        status: 'rejected',
+        rejection_reason: rejectionReason 
+      });
+      
+      if (res.data.success) {
+        alert(`Quotation ${selectedQuoteId} has been rejected.`);
+        setShowRejectModal(false);
+        fetchPendingQuotations();
+      }
+    } catch (err) {
+      console.error("Error rejecting quotation:", err);
+      alert("Failed to reject quotation. Please try again.");
+    } finally {
+      setRejecting(false);
     }
   };
 
@@ -470,13 +476,12 @@ const Pending = () => {
                 <thead className="bg-gray-700 hidden sm:table-header-group">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">ID</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Customer</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Service</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Date</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Amount</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Priority</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Days Pending</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Status</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Actions</th>
                   </tr>
                 </thead>
@@ -503,8 +508,8 @@ const Pending = () => {
                                 <h3 className="font-semibold text-white mt-1">{quote.customer}</h3>
                                 <p className="text-gray-400 text-sm">{quote.email}</p>
                               </div>
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(quote.priority)}`}>
-                                {quote.priority.charAt(0).toUpperCase() + quote.priority.slice(1)}
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(quote.priority || 'medium')}`}>
+                                {(quote.priority || 'medium').charAt(0).toUpperCase() + (quote.priority || 'medium').slice(1)}
                               </span>
                             </div>
                             
@@ -545,20 +550,30 @@ const Pending = () => {
                             
                             <div className="flex gap-2 pt-2">
                               <button 
-                                onClick={() => navigate(`/quotation/${quote.id}`)}
-                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-medium transition-colors"
+                                onClick={() => navigate(`/create-quotation`, { state: { editQuotation: quote } })}
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-xs font-medium transition-colors text-center"
                               >
-                                View
+                                Edit/View
+                              </button>
+                              <button 
+                                onClick={() => handleDownloadPdf(quote.id)}
+                                disabled={downloadingPdf === quote.id}
+                                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1"
+                              >
+                                {downloadingPdf === quote.id ? (
+                                  <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                ) : <FiFileText className="text-sm" />}
+                                PDF
                               </button>
                               <button 
                                 onClick={() => handleApprove(quote.id)}
-                                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded text-sm font-medium transition-colors"
+                                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded text-xs font-medium transition-colors"
                               >
                                 Approve
                               </button>
                               <button 
                                 onClick={() => handleReject(quote.id)}
-                                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded text-sm font-medium transition-colors"
+                                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded text-xs font-medium transition-colors"
                               >
                                 Reject
                               </button>
@@ -568,53 +583,77 @@ const Pending = () => {
                       </tr>
                       
                       {/* Desktop/Tablet View - Table Layout */}
+                      {/* Desktop/Tablet View - Table Layout */}
                       <tr key={`desktop-${quote.id}`} className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
                         <td className="px-4 py-3">
                           <span className="font-bold text-blue-400 text-sm">{quote.id}</span>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="font-semibold text-white text-sm">{quote.customer}</div>
-                          <div className="text-xs text-gray-400">{quote.email}</div>
-                          <div className="text-xs text-gray-500 mt-1">{quote.description}</div>
+                          <div className="flex items-center gap-2">
+                            <FiUser className="text-purple-300" />
+                            <div>
+                              <div className="text-purple-300 text-sm font-medium">{quote.user?.name || quote.salesperson || 'N/A'}</div>
+                              <div className="text-xs text-gray-400">ID: #{quote.user_id || quote.salesperson_id}</div>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-green-400 font-medium text-sm">{quote.service}</span>
+                          <div className="font-semibold text-white text-sm">{quote.client_name || quote.customer}</div>
+                          <div className="text-xs text-gray-400">{quote.client_email || quote.email}</div>
+                          {quote.description && <div className="text-xs text-gray-500 mt-1">{quote.description}</div>}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="text-purple-300 text-sm">{quote.salesperson}</div>
-                          <div className="text-xs text-gray-400">{quote.salespersonId}</div>
+                          <span className="text-green-400 font-medium text-sm">{quote.service_name || quote.service || 'N/A'}</span>
                         </td>
-                        <td className="px-4 py-3 text-gray-300 text-sm">{quote.date}</td>
-                        <td className="px-4 py-3 font-bold text-white text-sm">{quote.amount}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(quote.priority)}`}>
-                            {quote.priority.charAt(0).toUpperCase() + quote.priority.slice(1)}
-                          </span>
+                        <td className="px-4 py-3 text-gray-300 text-sm">
+                          {quote.quotation_date || quote.created_at?.split('T')[0] || 'N/A'}
                         </td>
+                        <td className="px-4 py-3 font-bold text-white text-sm">Rs. {parseFloat(quote.final_amount || quote.total_amount || 0).toLocaleString()}</td>
                         <td className="px-4 py-3">
-                          <span className={`px-3 py-1 rounded text-xs font-medium ${getDaysPendingColor(quote.daysPending)}`}>
-                            {quote.daysPending} days
-                          </span>
+                          <div className="flex flex-col gap-1">
+                            <span className="px-3 py-1 rounded-full text-xs font-medium border bg-yellow-500/10 text-yellow-500 border-yellow-500/20">
+                              Pending
+                            </span>
+                            {quote.rejection_history?.length > 0 && (
+                              <span className="text-[10px] text-blue-400 font-bold ml-1 animate-pulse">
+                                (Revised)
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
                             <button 
-                              onClick={() => navigate(`/quotation/${quote.id}`)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+                                onClick={() => handleApprove(quote.id)}
+                                className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors"
+                                title="Approve Quotation"
+                              >
+                                Approve
+                              </button>
+                              <button 
+                                onClick={() => handleReject(quote.id)}
+                                className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors"
+                                title="Reject Quotation"
+                              >
+                                Reject
+                              </button>
+                            <button 
+                              onClick={() => handleDownloadPdf(quote.id)}
+                              disabled={downloadingPdf === quote.id}
+                              className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1"
+                              title="Download PDF"
+                            >
+                              {downloadingPdf === quote.id ? (
+                                <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                              ) : <FiFileText />}
+                              PDF
+                            </button>
+                            <button 
+                              onClick={() => navigate(`/create-quotation`, { state: { editQuotation: quote } })}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors"
+                              title="Edit/View Details"
                             >
                               View
-                            </button>
-                            <button 
-                              onClick={() => handleApprove(quote.id)}
-                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
-                            >
-                              Approve
-                            </button>
-                            <button 
-                              onClick={() => handleReject(quote.id)}
-                              className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
-                            >
-                              Reject
                             </button>
                           </div>
                         </td>
@@ -661,7 +700,12 @@ const Pending = () => {
             <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
               <div className="text-gray-400 text-sm">Average Days Pending</div>
               <div className="text-2xl font-bold text-blue-400">
-                {(pendingQuotations.reduce((sum, q) => sum + q.daysPending, 0) / pendingQuotations.length).toFixed(1)}
+                {pendingQuotations.length > 0 
+                  ? (pendingQuotations.reduce((sum, q) => {
+                      const days = Math.floor((new Date() - new Date(q.created_at || new Date())) / (1000 * 60 * 60 * 24));
+                      return sum + days;
+                    }, 0) / pendingQuotations.length).toFixed(1)
+                  : "0.0"}
               </div>
             </div>
           </div>
@@ -685,6 +729,60 @@ const Pending = () => {
           )}
         </div>
       </div>
+      {/* Rejection Modal */}
+      {showRejectModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <span className="w-8 h-8 bg-red-500/10 text-red-500 rounded-lg flex items-center justify-center text-lg">❌</span>
+                  Reject Quotation
+                </h3>
+                <button 
+                  onClick={() => setShowRejectModal(false)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <FiX size={24} />
+                </button>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-400 mb-2">
+                  Reason for Rejection <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition-all min-h-[120px]"
+                  placeholder="Please explain why this quotation is being rejected..."
+                ></textarea>
+                <p className="text-xs text-gray-500 mt-2">
+                  This reason will be visible to the salesperson.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowRejectModal(false)}
+                  className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl font-semibold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmReject}
+                  disabled={rejecting || !rejectionReason.trim()}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-semibold shadow-lg shadow-red-600/20 transition-all flex items-center justify-center gap-2"
+                >
+                  {rejecting ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : "Confirm Reject"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,532 +1,361 @@
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import SuperAdminNavbar from "../../../components/SuperAdminNavbar";
-import { FiSearch, FiFilter, FiX, FiUser, FiDollarSign, FiCalendar, FiCheckCircle, FiAward, FiChevronRight } from 'react-icons/fi';
+import {
+  FiSearch,
+  FiX,
+  FiFileText,
+  FiUser,
+  FiClock,
+  FiAlertCircle,
+  FiCheck,
+  FiAward,
+} from "react-icons/fi";
+import API, { getQuotations, generateQuotationPdf } from "../../../api/api";
 
 const WinList = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedQuotation, setSelectedQuotation] = useState(null);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [filters, setFilters] = useState({
-    salesperson: 'all',
-    area: 'all',
-    sortBy: 'paymentDate',
-    sortOrder: 'desc'
-  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [quotations, setQuotations] = useState([]);
+  
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
   const navigate = useNavigate();
 
-  // Dummy data for win quotations (accepted + payment done)
-  const winQuotations = useMemo(() => [
-    {
-      id: 'QT-W101',
-      customer: 'TechCorp Solutions',
-      salesperson: 'John Doe',
-      area: 'North America',
-      service: 'Website Redesign Project',
-      date: '2024-01-15',
-      acceptedDate: '2024-01-16',
-      paymentDate: '2024-01-18',
-      amount: '$15,200',
-      paymentStatus: 'fully_paid',
-      paymentMethod: 'Bank Transfer',
-      invoiceNumber: 'INV-2024-001',
-      status: 'completed',
-      description: 'Complete website overhaul with new features',
-      commission: '$1,520'
-    },
-    {
-      id: 'QT-W102',
-      customer: 'Global Logistics Inc',
-      salesperson: 'Sarah M.',
-      area: 'Europe',
-      service: 'CRM System Implementation',
-      date: '2024-01-14',
-      acceptedDate: '2024-01-15',
-      paymentDate: '2024-01-17',
-      amount: '$8,500',
-      paymentStatus: 'fully_paid',
-      paymentMethod: 'Credit Card',
-      invoiceNumber: 'INV-2024-002',
-      status: 'completed',
-      description: 'Custom CRM solution for logistics tracking',
-      commission: '$850'
-    },
-    {
-      id: 'QT-W103',
-      customer: 'MediCare Hospital',
-      salesperson: 'Mike R.',
-      area: 'Asia Pacific',
-      service: 'Medical Equipment Supply',
-      date: '2024-01-13',
-      acceptedDate: '2024-01-14',
-      paymentDate: '2024-01-16',
-      amount: '$22,000',
-      paymentStatus: 'fully_paid',
-      paymentMethod: 'Bank Transfer',
-      invoiceNumber: 'INV-2024-003',
-      status: 'completed',
-      description: 'Medical devices and software integration',
-      commission: '$2,200'
-    },
-    {
-      id: 'QT-W104',
-      customer: 'EduTech Innovations',
-      salesperson: 'Emily T.',
-      area: 'South America',
-      service: 'Learning Management System',
-      date: '2024-01-12',
-      acceptedDate: '2024-01-13',
-      paymentDate: '2024-01-15',
-      amount: '$12,500',
-      paymentStatus: 'fully_paid',
-      paymentMethod: 'Bank Transfer',
-      invoiceNumber: 'INV-2024-004',
-      status: 'completed',
-      description: 'Custom LMS platform with analytics',
-      commission: '$1,250'
-    },
-    {
-      id: 'QT-W105',
-      customer: 'Green Energy Corp',
-      salesperson: 'David L.',
-      area: 'Middle East',
-      service: 'Solar Panel Installation',
-      date: '2024-01-11',
-      acceptedDate: '2024-01-12',
-      paymentDate: '2024-01-14',
-      amount: '$18,300',
-      paymentStatus: 'fully_paid',
-      paymentMethod: 'Credit Card',
-      invoiceNumber: 'INV-2024-005',
-      status: 'completed',
-      description: 'Commercial solar power system',
-      commission: '$1,830'
-    },
-  ], []);
+  // Modal States
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedQuotation, setSelectedQuotation] = useState(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(null);
 
-  // Get unique values for filters
-  const salespersons = useMemo(() => {
-    const unique = [...new Set(winQuotations.map(q => q.salesperson))];
-    return unique;
-  }, [winQuotations]);
+  // Safe access helper
+  const getVal = (val, field) => {
+    if (!val) return 'N/A';
+    if (typeof val === 'object') return val[field] || 'N/A';
+    return val;
+  };
 
-  const areas = useMemo(() => {
-    const unique = [...new Set(winQuotations.map(q => q.area))];
-    return unique;
-  }, [winQuotations]);
+  const handleViewPdf = async (id) => {
+    try {
+      setDownloadingPdf(id);
+      const response = await generateQuotationPdf(id);
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error("Error viewing PDF:", err);
+      alert("Failed to generate PDF. Please try again.");
+    } finally {
+      setDownloadingPdf(null);
+    }
+  };
 
-  // Filter and sort quotations
-  const filteredQuotations = useMemo(() => {
-    let result = [...winQuotations];
-    
-    // Apply search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(quote =>
-        quote.customer.toLowerCase().includes(query) ||
-        quote.id.toLowerCase().includes(query) ||
-        quote.salesperson.toLowerCase().includes(query) ||
-        quote.service.toLowerCase().includes(query) ||
-        quote.invoiceNumber.toLowerCase().includes(query)
-      );
-    }
-    
-    // Apply salesperson filter
-    if (filters.salesperson !== 'all') {
-      result = result.filter(quote => quote.salesperson === filters.salesperson);
-    }
-    
-    // Apply area filter
-    if (filters.area !== 'all') {
-      result = result.filter(quote => quote.area === filters.area);
-    }
-    
-    // Apply sorting
-    result.sort((a, b) => {
-      let comparison = 0;
+  useEffect(() => {
+    fetchWinQuotations();
+  }, []);
+
+  const fetchWinQuotations = async () => {
+    try {
+      setLoading(true);
+      setError(null);
       
-      switch (filters.sortBy) {
-        case 'paymentDate':
-          comparison = new Date(b.paymentDate) - new Date(a.paymentDate);
-          break;
-        case 'amount':
-          comparison = parseFloat(b.amount.replace('$', '').replace(',', '')) - 
-                     parseFloat(a.amount.replace('$', '').replace(',', ''));
-          break;
-        case 'salesperson':
-          comparison = a.salesperson.localeCompare(b.salesperson);
-          break;
-        case 'customer':
-          comparison = a.customer.localeCompare(b.customer);
-          break;
-        case 'commission':
-          comparison = parseFloat(b.commission.replace('$', '').replace(',', '')) - 
-                     parseFloat(a.commission.replace('$', '').replace(',', ''));
-          break;
-        default:
-          comparison = new Date(b.paymentDate) - new Date(a.paymentDate);
+      const quotesRes = await getQuotations();
+
+      if (quotesRes.data) {
+        const allQuotes = quotesRes.data.data || quotesRes.data.quotations || quotesRes.data || [];
+        
+        // Filter for win/accepted status
+        const winQuotes = allQuotes.filter(quote => {
+          const status = (quote.status || "").toLowerCase();
+          return status === 'win' || status === 'accepted' || status === 'completed';
+        });
+
+        setQuotations(winQuotes);
       }
-      
-      return filters.sortOrder === 'asc' ? comparison : -comparison;
-    });
-    
-    return result;
-  }, [winQuotations, searchQuery, filters]);
-
-  const handleQuotationClick = (quotation) => {
-    setSelectedQuotation(quotation);
-    setShowDetailsModal(true);
-  };
-
-  const getStatusColor = (status) => {
-    switch(status) {
-      case 'completed':
-        return 'bg-green-500/20 text-green-300 border-green-500/30';
-      case 'in-progress':
-        return 'bg-blue-500/20 text-blue-300 border-blue-500/30';
-      case 'pending':
-        return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
-      default:
-        return 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+    } catch (err) {
+      console.error("Error fetching win quotations:", err);
+      setError("Failed to load win quotations");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getPaymentColor = (status) => {
-    switch(status) {
-      case 'fully_paid':
-        return 'bg-green-500/20 text-green-300';
-      case 'partially_paid':
-        return 'bg-yellow-500/20 text-yellow-300';
-      case 'unpaid':
-        return 'bg-red-500/20 text-red-300';
+  const wonQuotations = quotations;
+
+  // Filter quotations based on search
+  const filteredQuotations = useMemo(() => {
+    if (!searchQuery) return wonQuotations;
+
+    const query = searchQuery.toLowerCase();
+    return wonQuotations.filter(
+      (quote) =>
+      (quote.client_name || quote.customer || "").toLowerCase().includes(query) ||
+      String(quote.id).toLowerCase().includes(query) ||
+      (quote.service_name || quote.service || "").toLowerCase().includes(query) ||
+      (quote.user?.name || quote.salesperson || "").toLowerCase().includes(query) ||
+      (quote.client_email || quote.customerEmail || "").toLowerCase().includes(query),
+    );
+  }, [wonQuotations, searchQuery]);
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case "high":
+        return "bg-red-500/20 text-red-300 border-red-500/30";
+      case "medium":
+        return "bg-yellow-500/20 text-yellow-300 border-yellow-500/30";
+      case "low":
+        return "bg-blue-500/20 text-blue-300 border-blue-500/30";
       default:
-        return 'bg-gray-500/20 text-gray-300';
+        return "bg-gray-500/20 text-gray-300 border-gray-500/30";
     }
   };
 
-  const getPaymentMethodIcon = (method) => {
-    switch(method) {
-      case 'Bank Transfer':
-        return '🏦';
-      case 'Credit Card':
-        return '💳';
-      case 'Cash':
-        return '💵';
-      case 'Check':
-        return '📄';
-      default:
-        return '💰';
-    }
+  // Clear search
+  const clearSearch = () => {
+    setSearchQuery("");
   };
 
   return (
     <div className="bg-gray-900 min-h-screen text-white">
       {/* Navbar */}
       <SuperAdminNavbar open={sidebarOpen} setOpen={setSidebarOpen} />
-      
+
       {/* Main Content */}
-      <div className={`transition-all duration-300 lg:ml-64 lg:-mt-135 ${sidebarOpen ? 'overflow-hidden' : ''}`}>
+      <div
+        className={`transition-all duration-300 lg:ml-64 lg:-mt-135 ${sidebarOpen ? "overflow-hidden" : ""}`}
+      >
+        {/* Mobile Top Spacer */}
         <div className="h-16 lg:h-0"></div>
-        
-        <div className={`p-4 sm:p-6 ${sidebarOpen ? 'overflow-hidden' : ''}`}>
+
+        {/* Content Container */}
+        <div className={`p-4 sm:p-6 lg:pt-0 ${sidebarOpen ? "overflow-hidden" : ""}`}>
           
-          <div className={`p-4 sm:p-6 ${sidebarOpen ? 'overflow-hidden' : ''}`}>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center min-h-[400px]">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+              <p className="text-gray-400">Loading win quotations...</p>
+            </div>
+          ) : error ? (
+            <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-6 text-center">
+              <p className="text-red-400 mb-4">{error}</p>
+              <button 
+                onClick={fetchWinQuotations}
+                className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          ) : (
+            <>
+          <div className="p-4 sm:p-6">
             {/* Header */}
             <div className="mb-6 flex justify-between items-start">
-                
-                {/* Left Text */}
-                <div>
-                <h1 className="text-2xl sm:text-3xl font-bold">Win Quotation</h1>
+              {/* Left Text */}
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-yellow-400 flex items-center gap-2">
+                  <FiAward /> Win Quotations
+                </h1>
                 <p className="text-gray-400 mt-1">
-                    View all accepted quotations with completed payments
+                  Successfully closed deals and completed projects.
                 </p>
-                </div>
+              </div>
 
-                {/* Right Button */}
-                <button 
+              {/* Right Button */}
+              <button
                 onClick={() => navigate(-1)}
                 className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-                >
-                ← Back to Dashboard
-                </button>
-
+                title="Go Back"
+              >
+                ← Back
+              </button>
             </div>
+          </div>
+
+          {/* Summary Stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+              <p className="text-gray-400 text-sm sm:text-base">Total Won</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-yellow-500 mt-1 sm:mt-2">{wonQuotations.length}</h2>
+              <p className="text-green-500 text-xs sm:text-sm mt-1 flex items-center gap-1"><FiCheck /> Closed Successfully</p>
             </div>
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+              <p className="text-gray-400 text-sm sm:text-base">High Priority</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mt-1 sm:mt-2">
+                {wonQuotations.filter(q => (q.priority || "").toLowerCase() === 'high').length}
+              </h2>
+              <p className="text-red-400 text-xs sm:text-sm mt-1">Major Wins</p>
+            </div>
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+              <p className="text-gray-400 text-sm sm:text-base">Total Revenue</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mt-1 sm:mt-2">
+                Rs. {wonQuotations.reduce((sum, q) => sum + parseFloat(q.final_amount || q.total_amount || 0), 0).toLocaleString()}
+              </h2>
+              <p className="text-purple-400 text-xs sm:text-sm mt-1">Total deal value</p>
+            </div>
+            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+              <p className="text-gray-400 text-sm sm:text-base">Success Rate</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mt-1 sm:mt-2">100%</h2>
+              <p className="text-blue-400 text-xs sm:text-sm mt-1">Confirmed deals</p>
+            </div>
+          </div>
 
-
-          {/* Search and Filter Bar */}
+          {/* Search Bar */}
           <div className="bg-gray-800 rounded-lg sm:rounded-xl border border-gray-700 p-4 mb-6">
             <div className="flex flex-col gap-4">
-              {/* Search Bar */}
               <div className="relative">
                 <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search by customer, quotation ID, invoice, or salesperson..."
+                  placeholder="Search won quotations by customer, ID, service, or salesperson..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
                 {searchQuery && (
                   <button
-                    onClick={() => setSearchQuery('')}
+                    onClick={clearSearch}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
                   >
                     <FiX />
                   </button>
                 )}
               </div>
-
-              {/* Filter Controls */}
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex-1 flex flex-col sm:flex-row gap-3">
-                  {/* Salesperson Filter */}
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">Salesperson</label>
-                    <select
-                      value={filters.salesperson}
-                      onChange={(e) => setFilters({...filters, salesperson: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      <option value="all">All Salespersons</option>
-                      {salespersons.map(sp => (
-                        <option key={sp} value={sp}>{sp}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Area Filter */}
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">Area</label>
-                    <select
-                      value={filters.area}
-                      onChange={(e) => setFilters({...filters, area: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      <option value="all">All Areas</option>
-                      {areas.map(area => (
-                        <option key={area} value={area}>{area}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Sort By */}
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">Sort By</label>
-                    <select
-                      value={filters.sortBy}
-                      onChange={(e) => setFilters({...filters, sortBy: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      <option value="paymentDate">Payment Date</option>
-                      <option value="amount">Amount</option>
-                      <option value="commission">Commission</option>
-                      <option value="salesperson">Salesperson</option>
-                      <option value="customer">Customer</option>
-                    </select>
-                  </div>
-
-                  {/* Sort Order */}
-                  <div className="flex-1">
-                    <label className="block text-xs text-gray-400 mb-1">Order</label>
-                    <select
-                      value={filters.sortOrder}
-                      onChange={(e) => setFilters({...filters, sortOrder: e.target.value})}
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
-                    >
-                      <option value="desc">Newest First</option>
-                      <option value="asc">Oldest First</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Stats Summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
-            <div className="bg-gradient-to-br from-green-900/30 to-emerald-900/30 p-4 rounded-xl border border-green-700/30">
-              <p className="text-gray-400 text-sm">Total Win Quotations</p>
-              <p className="text-2xl font-bold text-green-400">{winQuotations.length}</p>
-            </div>
-            <div className="bg-gradient-to-br from-blue-900/30 to-cyan-900/30 p-4 rounded-xl border border-blue-700/30">
-              <p className="text-gray-400 text-sm">Total Revenue</p>
-              <p className="text-2xl font-bold text-blue-400">
-                ${winQuotations.reduce((sum, q) => sum + parseFloat(q.amount.replace('$', '').replace(',', '')), 0).toLocaleString()}
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-yellow-900/30 to-amber-900/30 p-4 rounded-xl border border-yellow-700/30">
-              <p className="text-gray-400 text-sm">Total Commissions</p>
-              <p className="text-2xl font-bold text-yellow-400">
-                ${winQuotations.reduce((sum, q) => sum + parseFloat(q.commission.replace('$', '').replace(',', '')), 0).toLocaleString()}
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 p-4 rounded-xl border border-purple-700/30">
-              <p className="text-gray-400 text-sm">Avg. Commission Rate</p>
-              <p className="text-2xl font-bold text-purple-400">
-                {((winQuotations.reduce((sum, q) => sum + parseFloat(q.commission.replace('$', '').replace(',', '')), 0) / 
-                  winQuotations.reduce((sum, q) => sum + parseFloat(q.amount.replace('$', '').replace(',', '')), 0)) * 100).toFixed(1)}%
-              </p>
             </div>
           </div>
 
           {/* Results Summary */}
-          <div className="mb-4 flex justify-between items-center">
+          <div className="mb-4">
             <p className="text-gray-400 text-sm">
-              Showing {filteredQuotations.length} of {winQuotations.length} win quotations
+              Showing {filteredQuotations.length} of {wonQuotations.length}{" "}
+              won quotations
             </p>
           </div>
 
-          {/* Quotations Table */}
+          {/* Table Container */}
           <div className="bg-gray-800 rounded-lg sm:rounded-xl border border-gray-700 shadow-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-full">
                 {/* Desktop Headers */}
                 <thead className="bg-gray-700 hidden sm:table-header-group">
                   <tr>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Quotation ID</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Customer</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Service</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Payment Date</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Amount</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm">Commission</th>
-                    <th className="px-6 py-3 text-left font-semibold text-gray-300 text-sm"></th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">ID</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Customer</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Date</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Amount</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Status</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Actions</th>
                   </tr>
                 </thead>
-                
+
                 {/* Mobile Headers */}
                 <thead className="bg-gray-700 sm:hidden">
                   <tr>
-                    <th colSpan="2" className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">
-                      Win Quotations ({filteredQuotations.length})
+                    <th
+                      colSpan="2"
+                      className="px-4 py-3 text-left font-semibold text-gray-300 text-sm"
+                    >
+                      Won Quotations ({filteredQuotations.length})
                     </th>
                   </tr>
                 </thead>
-                
+
                 <tbody>
                   {filteredQuotations.map((quote) => (
-                    <>
+                    <React.Fragment key={quote.id}>
                       {/* Mobile View - Card Layout */}
-                      <tr key={`mobile-${quote.id}`} className="sm:hidden border-b border-gray-700 hover:bg-gray-750 transition-colors duration-200">
+                      <tr className="sm:hidden border-b border-gray-700">
                         <td colSpan="2" className="p-4">
-                          <div 
-                            className="space-y-3 cursor-pointer"
-                            onClick={() => handleQuotationClick(quote)}
-                          >
+                          <div className="space-y-3">
                             <div className="flex justify-between items-start">
                               <div>
-                                <div className="flex items-center gap-2">
-                                  <FiAward className="w-4 h-4 text-yellow-400" />
-                                  <h3 className="font-bold text-yellow-400">{quote.id}</h3>
-                                </div>
-                                <h4 className="font-semibold text-white mt-1">{quote.customer}</h4>
-                                <p className="text-gray-400 text-sm">{quote.service}</p>
+                                <span className="font-bold text-blue-400">{quote.id}</span>
+                                <h3 className="font-semibold text-white mt-1">{getVal(quote.client || quote.customer, 'name') || quote.client_name || 'N/A'}</h3>
+                                <p className="text-gray-400 text-sm">{getVal(quote.client || quote.customer, 'email') || quote.client_email || 'N/A'}</p>
                               </div>
-                              <FiChevronRight className="text-gray-400" />
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-gray-400 text-xs">Salesperson</p>
-                                <p className="text-purple-300 text-sm">{quote.salesperson}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-400 text-xs">Payment Date</p>
-                                <p className="text-gray-300 text-sm">{quote.paymentDate}</p>
-                              </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <p className="text-gray-400 text-xs">Amount</p>
-                                <p className="font-bold text-white text-sm">{quote.amount}</p>
-                              </div>
-                              <div>
-                                <p className="text-gray-400 text-xs">Commission</p>
-                                <p className="font-bold text-yellow-400 text-sm">{quote.commission}</p>
-                              </div>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getPriorityColor(quote.priority || 'medium')} flex items-center gap-1`}>
+                                {(quote.priority || 'medium').charAt(0).toUpperCase() + (quote.priority || 'medium').slice(1)}
+                              </span>
                             </div>
                             
                             <div className="flex items-center gap-2">
-                              <span className="text-xs text-gray-400">Payment:</span>
-                              <span className={`px-2 py-1 rounded text-xs font-medium ${getPaymentColor(quote.paymentStatus)}`}>
-                                {quote.paymentStatus.replace('_', ' ')}
-                              </span>
-                              <span className="text-xs text-gray-400 ml-2">
-                                {getPaymentMethodIcon(quote.paymentMethod)}
-                              </span>
+                              <FiUser className="text-purple-300 text-xs" />
+                              <p className="text-purple-300 text-sm font-medium">{getVal(quote.user || quote.salesperson, 'name')}</p>
+                            </div>
+
+                            <div className="flex justify-between items-center">
+                              <p className="font-bold text-white text-sm">Rs. {parseFloat(quote.final_amount || quote.total_amount || 0).toLocaleString()}</p>
+                              <p className="text-yellow-400 text-xs flex items-center gap-1">
+                                <FiAward size={12} /> Won
+                              </p>
+                            </div>
+                            
+                            <div className="pt-2">
+                              <button 
+                                onClick={() => {
+                                  setSelectedQuotation(quote);
+                                  setShowDetailsModal(true);
+                                }}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-medium transition-colors"
+                              >
+                                View Details
+                              </button>
                             </div>
                           </div>
                         </td>
                       </tr>
                       
                       {/* Desktop/Tablet View - Table Layout */}
-                      <tr key={`desktop-${quote.id}`} className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
-                        <td className="px-6 py-4">
-                          <div 
-                            className="flex items-center gap-2 font-bold text-yellow-400 cursor-pointer hover:text-yellow-300 transition-colors"
-                            onClick={() => handleQuotationClick(quote)}
-                          >
-                            <FiAward className="w-4 h-4" />
-                            {quote.id}
-                          </div>
+                      <tr className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
+                        <td className="px-4 py-3">
+                          <span className="font-bold text-blue-400 text-sm">#{quote.id}</span>
                         </td>
-                        <td className="px-6 py-4">
-                          <div 
-                            className="font-semibold text-white cursor-pointer hover:text-blue-300 transition-colors"
-                            onClick={() => handleQuotationClick(quote)}
-                          >
-                            {quote.customer}
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">{quote.description}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-green-400 font-medium text-sm">{quote.service}</span>
-                        </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <FiUser className="w-4 h-4 text-purple-400" />
-                            <span className="text-purple-300 text-sm">{quote.salesperson}</span>
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">{quote.area}</div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <FiCalendar className="w-4 h-4 text-blue-400" />
+                            <FiUser className="text-purple-300" />
                             <div>
-                              <div className="text-gray-300 text-sm">{quote.paymentDate}</div>
-                              <div className="text-xs text-gray-500">Accepted: {quote.acceptedDate}</div>
+                                <div className="text-purple-300 text-sm font-medium">{getVal(quote.user || quote.salesperson, 'name')}</div>
+                                <div className="text-xs text-gray-400 font-mono">ID: #{quote.user_id || quote.salesperson_id || (typeof quote.user === 'object' ? quote.user.id : '')}</div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <FiDollarSign className="w-4 h-4 text-yellow-400" />
-                            <span className="font-bold text-white">{quote.amount}</span>
-                          </div>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-white text-sm">{getVal(quote.client || quote.customer, 'name') || quote.client_name || 'N/A'}</div>
+                          <div className="text-xs text-gray-400 truncate max-w-[150px]">{getVal(quote.client || quote.customer, 'email') || quote.client_email || 'N/A'}</div>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <FiAward className="w-4 h-4 text-green-400" />
-                            <span className="font-bold text-yellow-400">{quote.commission}</span>
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">
-                            {((parseFloat(quote.commission.replace('$', '').replace(',', '')) / 
-                               parseFloat(quote.amount.replace('$', '').replace(',', ''))) * 100).toFixed(1)}% rate
-                          </div>
+                        <td className="px-4 py-3 text-gray-300 text-sm">
+                          {quote.quotation_date || quote.created_at?.split('T')[0] || 'N/A'}
                         </td>
-                        <td className="px-6 py-4">
-                          <button 
-                            onClick={() => handleQuotationClick(quote)}
-                            className="text-gray-400 hover:text-white transition-colors"
-                          >
-                            <FiChevronRight className="w-5 h-5" />
-                          </button>
+                        <td className="px-4 py-3 font-bold text-white text-sm">Rs. {parseFloat(quote.final_amount || quote.total_amount || 0).toLocaleString()}</td>
+                        <td className="px-4 py-3">
+                          <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 w-fit flex items-center gap-1">
+                            <FiAward size={10} /> Won
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
+                            <button 
+                                onClick={() => {
+                                  setSelectedQuotation(quote);
+                                  setShowDetailsModal(true);
+                                }}
+                                className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200"
+                            >
+                                Details
+                            </button>
+                            <button 
+                                onClick={() => handleViewPdf(quote.id)}
+                                disabled={downloadingPdf === quote.id}
+                                className="bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1"
+                            >
+                                {downloadingPdf === quote.id ? (
+                                  <div className="w-3 h-3 border-2 border-purple-400/30 border-t-purple-400 rounded-full animate-spin"></div>
+                                ) : <FiFileText size={14} />}
+                                PDF
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                    </>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
@@ -536,175 +365,120 @@ const WinList = () => {
               <div className="text-center py-12">
                 <FiAward className="w-16 h-16 text-gray-600 mx-auto mb-4" />
                 <p className="text-gray-400">No win quotations found</p>
-                <p className="text-gray-500 text-sm mt-2">
-                  {searchQuery 
-                    ? `No results found for "${searchQuery}". Try a different search term.`
-                    : 'No win quotations in the system.'}
-                </p>
               </div>
             )}
           </div>
+            </>
+          )}
+        </div>
 
-          {/* Quotation Details Modal */}
-          {showDetailsModal && selectedQuotation && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-              <div className="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                {/* Modal Header */}
-                <div className="p-6 border-b border-gray-700">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <FiAward className="w-8 h-8 text-yellow-400" />
-                      <div>
-                        <h2 className="text-2xl font-bold">{selectedQuotation.id}</h2>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedQuotation.status)}`}>
-                            WIN - {selectedQuotation.status}
-                          </span>
-                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPaymentColor(selectedQuotation.paymentStatus)}`}>
-                            {selectedQuotation.paymentStatus.replace('_', ' ')}
-                          </span>
-                        </div>
+        {/* Quotation Details Modal */}
+        {showDetailsModal && selectedQuotation && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm">
+            <div className="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200 flex flex-col">
+              {/* Modal Header */}
+              <div className="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center bg-gray-800/50">
+                <div className="pr-4">
+                  <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2 flex-wrap">
+                    Quotation Details <span className="text-blue-400 text-xs sm:text-sm font-mono bg-blue-400/10 px-2 py-0.5 rounded-md">#{selectedQuotation.id}</span>
+                  </h3>
+                  <p className="text-[10px] sm:text-xs text-gray-400 mt-1">Closed deal details</p>
+                </div>
+                <button 
+                  onClick={() => setShowDetailsModal(false)}
+                  className="p-2 hover:bg-gray-700 rounded-full transition-colors text-gray-400 hover:text-white shrink-0"
+                >
+                  <FiX size={20} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-4 sm:p-6 flex-1 overflow-y-auto custom-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                  {/* Client Info */}
+                  <div className="space-y-3 sm:space-y-4">
+                    <h4 className="text-[10px] sm:text-xs uppercase font-bold text-gray-500 tracking-wider">Client Information</h4>
+                    <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700/50">
+                      <p className="text-sm font-semibold text-white">{getVal(selectedQuotation.client || selectedQuotation.customer, 'name') || selectedQuotation.client_name || 'N/A'}</p>
+                      <p className="text-xs text-gray-400 mt-1 break-all">{getVal(selectedQuotation.client || selectedQuotation.customer, 'email') || selectedQuotation.client_email || 'N/A'}</p>
+                      <div className="mt-3 flex items-center gap-2 text-[11px] sm:text-xs text-gray-500">
+                        <FiUser size={12} className="shrink-0" />
+                        <span className="truncate">Salesperson: {getVal(selectedQuotation.user || selectedQuotation.salesperson, 'name') || 'N/A'}</span>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => setShowDetailsModal(false)}
-                      className="text-gray-400 hover:text-white text-2xl"
-                    >
-                      ×
-                    </button>
+                  </div>
+
+                  {/* Summary Info */}
+                  <div className="space-y-3 sm:space-y-4">
+                    <h4 className="text-[10px] sm:text-xs uppercase font-bold text-gray-500 tracking-wider">Summary</h4>
+                    <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700/50">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs text-gray-400 font-medium italic">Status</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
+                          {selectedQuotation.status || 'Won'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs text-gray-400 font-medium italic">Discount</span>
+                        <span className="text-sm font-semibold text-red-400">
+                          - Rs. {parseFloat(selectedQuotation.total_discount || 0).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center border-t border-gray-700/50 pt-2">
+                        <span className="text-xs text-gray-400 font-medium italic">Final Total</span>
+                        <span className="text-base sm:text-lg font-bold text-white">Rs. {parseFloat(selectedQuotation.final_amount || selectedQuotation.total_amount || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Modal Body */}
-                <div className="p-6">
-                  {/* Quotation Information */}
-                  <div className="mb-8">
-                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Quotation Details</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <p className="text-sm text-gray-400">Customer</p>
-                        <p className="font-medium text-lg">{selectedQuotation.customer}</p>
-                      </div>
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <p className="text-sm text-gray-400">Salesperson</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <FiUser className="w-4 h-4 text-purple-400" />
-                          <p className="font-medium">{selectedQuotation.salesperson}</p>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-1">{selectedQuotation.area}</p>
-                      </div>
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <p className="text-sm text-gray-400">Service</p>
-                        <p className="font-medium text-green-400">{selectedQuotation.service}</p>
-                      </div>
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <p className="text-sm text-gray-400">Amount</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <FiDollarSign className="w-5 h-5 text-yellow-400" />
-                          <p className="font-bold text-2xl">{selectedQuotation.amount}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Payment Information */}
-                  <div className="mb-8">
-                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Payment Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="p-4 bg-green-900/20 rounded-lg border border-green-700/30">
-                        <p className="text-sm text-gray-400">Commission</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <FiAward className="w-5 h-5 text-yellow-400" />
-                          <p className="font-bold text-2xl text-yellow-400">{selectedQuotation.commission}</p>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-2">
-                          Commission Rate: {((parseFloat(selectedQuotation.commission.replace('$', '').replace(',', '')) / 
-                            parseFloat(selectedQuotation.amount.replace('$', '').replace(',', ''))) * 100).toFixed(1)}%
-                        </p>
-                      </div>
-                      <div className="p-4 bg-blue-900/20 rounded-lg border border-blue-700/30">
-                        <p className="text-sm text-gray-400">Invoice Number</p>
-                        <p className="font-medium text-lg text-blue-400">{selectedQuotation.invoiceNumber}</p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span className="text-lg">{getPaymentMethodIcon(selectedQuotation.paymentMethod)}</span>
-                          <p className="text-sm text-gray-300">{selectedQuotation.paymentMethod}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Timeline */}
-                  <div className="mb-8">
-                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Timeline</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <FiCalendar className="w-5 h-5 text-blue-400" />
+                {/* Items List */}
+                {selectedQuotation.items && Array.isArray(selectedQuotation.items) && selectedQuotation.items.length > 0 && (
+                  <div className="mt-8">
+                    <h4 className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-4">Detailed Line Items</h4>
+                    <div className="bg-gray-900/50 rounded-xl border border-gray-700/50 divide-y divide-gray-800">
+                      {selectedQuotation.items.map((item, idx) => (
+                        <div key={idx} className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-center">
                           <div>
-                            <p className="text-sm text-gray-400">Created Date</p>
-                            <p className="font-medium">{selectedQuotation.date}</p>
+                            <p className="text-[10px] text-blue-400 font-bold uppercase tracking-tight">{getVal(item, 'category_name') || 'Category'}</p>
+                            <p className="text-sm font-bold text-white leading-tight">{getVal(item, 'product_name') || 'Product Name'}</p>
+                            {item.core_name && (
+                              <p className="text-[10px] text-purple-400 mt-0.5 bg-purple-400/10 px-1.5 py-0.5 rounded-md w-fit">Core: {item.core_name}</p>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-400 space-y-0.5">
+                            <p>Qty: <span className="text-gray-200 font-mono">{Number(item.quantity || 0)}</span></p>
+                            <p>Unit Price: <span className="text-gray-200 font-mono">Rs.{parseFloat(item.unit_price || item.price || 0).toLocaleString()}</span></p>
+                            <p>Discount: <span className="text-red-400 font-mono">Rs.{parseFloat(item.discount || item.discount_amount || 0).toLocaleString()}</span></p>
+                          </div>
+                          <div className="sm:text-right">
+                            <p className="text-[10px] text-gray-500 italic">Subtotal</p>
+                            <p className="text-base font-bold text-white">
+                              Rs. {(Number(item.quantity || 1) * parseFloat(item.unit_price || item.price || 0) - parseFloat(item.discount || item.discount_amount || 0)).toLocaleString()}
+                            </p>
                           </div>
                         </div>
-                      </div>
-                      <div className="p-4 bg-gray-750 rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <FiCheckCircle className="w-5 h-5 text-green-400" />
-                          <div>
-                            <p className="text-sm text-gray-400">Accepted Date</p>
-                            <p className="font-medium">{selectedQuotation.acceptedDate}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="p-4 bg-green-900/20 rounded-lg border border-green-700/30">
-                        <div className="flex items-center gap-3">
-                          <FiAward className="w-5 h-5 text-yellow-400" />
-                          <div>
-                            <p className="text-sm text-gray-400">Payment Date</p>
-                            <p className="font-medium text-green-400">{selectedQuotation.paymentDate}</p>
-                          </div>
-                        </div>
-                      </div>
+                      ))}
                     </div>
                   </div>
+                )}
+              </div>
 
-                  {/* Description */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4 text-gray-300">Description</h3>
-                    <div className="p-4 bg-gray-750 rounded-lg">
-                      <p className="text-gray-300">{selectedQuotation.description}</p>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <button className="p-3 bg-blue-600 hover:bg-blue-700 rounded-lg text-white font-medium transition-colors">
-                      View Full Details
-                    </button>
-                    <button className="p-3 bg-green-600 hover:bg-green-700 rounded-lg text-white font-medium transition-colors">
-                      Download Invoice
-                    </button>
-                    <button className="p-3 bg-yellow-600 hover:bg-yellow-700 rounded-lg text-white font-medium transition-colors">
-                      Commission Report
-                    </button>
-                  </div>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="p-6 border-t border-gray-700 flex justify-end gap-3">
+              {/* Modal Footer */}
+              <div className="p-4 sm:p-6 border-t border-gray-700 bg-gray-800/50">
+                <div className="flex justify-end">
                   <button
-                    onClick={() => setShowDetailsModal(false)}
-                    className="px-6 py-2 border border-gray-600 text-gray-300 rounded-lg hover:bg-gray-700 transition-colors"
+                    onClick={() => handleViewPdf(selectedQuotation.id)}
+                    className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold transition-all flex items-center gap-2"
                   >
-                    Close
-                  </button>
-                  <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                    Edit Record
+                    <FiFileText size={16} />
+                    Download Invoice
                   </button>
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

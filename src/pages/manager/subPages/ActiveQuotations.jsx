@@ -1,7 +1,8 @@
-import React, { useState, useMemo, } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ManagerNavbar from "../../../components/ManagerNavbar";
-import { FiSearch, FiFilter, FiX } from 'react-icons/fi';
+import { FiSearch, FiFilter, FiX, FiFileText } from 'react-icons/fi';
+import API, { getQuotations, getTeamStats, generateQuotationPdf } from '../../../api/api';
 
 const ActiveQuotations = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -14,93 +15,80 @@ const ActiveQuotations = () => {
   });
   const navigate = useNavigate();
 
-  // Dummy data for active quotations (approved but not won yet)
-  const activeQuotations = useMemo(() => [
-    {
-      id: 'QT-101',
-      salesperson: 'John Smith',
-      salespersonId: 'SP-001',
-      customer: 'Tech Solutions Inc.',
-      email: 'contact@techsolutions.com',
-      service: 'Custom Software Development',
-      date: '2024-01-20',
-      amount: '$12,500',
-      approvedDate: '2024-01-22',
-      expectedCompletion: '2024-03-15',
-      paymentStatus: 'Pending',
-      projectStatus: 'Planning'
-    },
-    {
-      id: 'QT-102',
-      salesperson: 'Sarah Johnson',
-      salespersonId: 'SP-002',
-      customer: 'Retail Masters',
-      email: 'procurement@retailmasters.com',
-      service: 'E-commerce Platform',
-      date: '2024-01-18',
-      amount: '$8,200',
-      approvedDate: '2024-01-19',
-      expectedCompletion: '2024-02-28',
-      paymentStatus: 'Awaiting Payment',
-      projectStatus: 'Requirements Gathering'
-    },
-    {
-      id: 'QT-103',
-      salesperson: 'Michael Brown',
-      salespersonId: 'SP-003',
-      customer: 'HealthCare Plus',
-      email: 'it@healthcareplus.com',
-      service: 'Medical Management System',
-      date: '2024-01-15',
-      amount: '$15,000',
-      approvedDate: '2024-01-17',
-      expectedCompletion: '2024-04-10',
-      paymentStatus: 'Payment Initiated',
-      projectStatus: 'Design Phase'
-    },
-    {
-      id: 'QT-104',
-      salesperson: 'Emily Davis',
-      salespersonId: 'SP-004',
-      customer: 'EduTech Innovations',
-      email: 'admin@edutech.com',
-      service: 'Learning Management System',
-      date: '2024-01-12',
-      amount: '$9,800',
-      approvedDate: '2024-01-14',
-      expectedCompletion: '2024-03-05',
-      paymentStatus: 'Pending',
-      projectStatus: 'Planning'
-    },
-    {
-      id: 'QT-105',
-      salesperson: 'Robert Wilson',
-      salespersonId: 'SP-005',
-      customer: 'Logistics Pro',
-      email: 'sales@logisticspro.com',
-      service: 'Supply Chain Management',
-      date: '2024-01-10',
-      amount: '$7,500',
-      approvedDate: '2024-01-11',
-      expectedCompletion: '2024-02-20',
-      paymentStatus: 'Awaiting Payment',
-      projectStatus: 'Requirements Gathering'
-    },
-    {
-      id: 'QT-106',
-      salesperson: 'John Smith',
-      salespersonId: 'SP-001',
-      customer: 'Finance Corp',
-      email: 'it@financecorp.com',
-      service: 'Financial Dashboard',
-      date: '2024-01-08',
-      amount: '$6,300',
-      approvedDate: '2024-01-09',
-      expectedCompletion: '2024-02-15',
-      paymentStatus: 'Payment Initiated',
-      projectStatus: 'Design Phase'
-    },
-  ], []);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [quotations, setQuotations] = useState([]);
+  const [downloadingPdf, setDownloadingPdf] = useState(null);
+  
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userId = String(user.id || "");
+
+  useEffect(() => {
+    fetchActiveQuotations();
+  }, []);
+
+  const fetchActiveQuotations = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [quotesRes, statsRes] = await Promise.all([
+        getQuotations(),
+        getTeamStats()
+      ]);
+
+      if (quotesRes.data && statsRes.data) {
+        const allQuotes = quotesRes.data.data || quotesRes.data.quotations || quotesRes.data || [];
+        const myTeam = statsRes.data.dashboard_stats?.my_team || [];
+        
+        // Get IDs of all salespersons in this manager's team (including the manager themselves)
+        const teamMemberIds = myTeam
+          .filter(member => String(member.manager_id) === userId || String(member.parent_id) === userId || String(member.id) === userId)
+          .map(member => String(member.id));
+        
+        if (!teamMemberIds.includes(userId)) teamMemberIds.push(userId);
+
+        // Filter quotations: created by a team member AND status is approved/accepted
+        const activeQuotes = allQuotes.filter(quote => {
+          const creatorId = String(quote.user_id || quote.salesperson_id || quote.user?.id || "");
+          const status = (quote.status || "").toLowerCase();
+          return teamMemberIds.includes(creatorId) && ['approved', 'accepted'].includes(status);
+        });
+
+        setQuotations(activeQuotes);
+      }
+    } catch (err) {
+      console.error("Error fetching active quotations:", err);
+      setError("Failed to load active quotations");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const activeQuotations = quotations;
+
+  // Handle PDF Download
+  const handleDownloadPdf = async (id) => {
+    try {
+      setDownloadingPdf(id);
+      const response = await generateQuotationPdf(id);
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Quotation-${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error downloading PDF:", err);
+      alert("Failed to download PDF. Please try again.");
+    } finally {
+      setDownloadingPdf(null);
+    }
+  };
 
   // Get unique salespersons for filter
   const salespersons = useMemo(() => {
@@ -119,10 +107,10 @@ const ActiveQuotations = () => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(quote =>
-        quote.customer.toLowerCase().includes(query) ||
-        quote.id.toLowerCase().includes(query) ||
-        quote.service.toLowerCase().includes(query) ||
-        quote.salesperson.toLowerCase().includes(query)
+        (quote.client_name || quote.customer || "").toLowerCase().includes(query) ||
+        String(quote.id).toLowerCase().includes(query) ||
+        (quote.service_name || quote.service || "").toLowerCase().includes(query) ||
+        (quote.user?.name || quote.salesperson || "").toLowerCase().includes(query)
       );
     }
     
@@ -144,11 +132,8 @@ const ActiveQuotations = () => {
         case 'date':
           comparison = new Date(b.date) - new Date(a.date);
           break;
-        case 'amount':
-        //   const amountA = parseFloat(a.amount.replace('$', '').replace(',', ''));
-        //   const amountB = parseFloat(b.amount.replace('$', '').replace(',', ''));
-        //   comparison = amountB - amountA;
-        comparison = parseFloat(b.amount.replace('$', '')) - parseFloat(a.amount.replace('$', ''));
+        comparison = parseFloat(String(b.final_amount || b.total_amount || 0).replace('$', '').replace(',', '')) - 
+                     parseFloat(String(a.final_amount || a.total_amount || 0).replace('$', '').replace(',', ''));
           break;
         case 'salesperson':
           comparison = a.salesperson.localeCompare(b.salesperson);
@@ -424,9 +409,9 @@ const ActiveQuotations = () => {
                 <thead className="bg-gray-700 hidden sm:table-header-group">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">ID</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Customer</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Service</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Date</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Amount</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Payment Status</th>
@@ -499,12 +484,22 @@ const ActiveQuotations = () => {
                             
                             <div className="flex gap-2 pt-2">
                               <button 
-                                onClick={() => navigate(`/quotation/${quote.id}`)}
-                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-medium transition-colors"
+                                onClick={() => navigate(`/create-quotation`, { state: { editQuotation: quote } })}
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-xs font-medium transition-colors text-center"
                               >
-                                View
+                                Edit/View
                               </button>
-                              <button className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded text-sm font-medium transition-colors">
+                              <button 
+                                onClick={() => handleDownloadPdf(quote.id)}
+                                disabled={downloadingPdf === quote.id}
+                                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1"
+                              >
+                                {downloadingPdf === quote.id ? (
+                                  <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                ) : <FiFileText className="text-sm" />}
+                                PDF
+                              </button>
+                              <button className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded text-xs font-medium transition-colors">
                                 Update Payment
                               </button>
                             </div>
@@ -515,40 +510,59 @@ const ActiveQuotations = () => {
                       {/* Desktop/Tablet View - Table Layout */}
                       <tr key={`desktop-${quote.id}`} className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
                         <td className="px-4 py-3">
-                          <span className="font-bold text-blue-400 text-sm">{quote.id}</span>
+                          <span className="font-bold text-blue-400 text-sm">#{quote.id}</span>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="font-semibold text-white text-sm">{quote.customer}</div>
-                          <div className="text-xs text-gray-400">{quote.email}</div>
+                          <div className="flex items-center gap-2">
+                            <FiUser className="text-purple-300" />
+                            <div>
+                                <div className="text-purple-300 text-sm font-medium">{quote.user?.name || quote.salesperson || 'N/A'}</div>
+                                <div className="text-xs text-gray-400">ID: #{quote.user_id || quote.salesperson_id}</div>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-green-400 font-medium text-sm">{quote.service}</span>
+                          <div className="font-semibold text-white text-sm">{quote.client_name || quote.customer}</div>
+                          <div className="text-xs text-gray-400">{quote.client_email || quote.email}</div>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="text-purple-300 text-sm">{quote.salesperson}</div>
-                          <div className="text-xs text-gray-400">{quote.salespersonId}</div>
+                          <span className="text-green-400 font-medium text-sm">{quote.service_name || quote.service || 'N/A'}</span>
                         </td>
-                        <td className="px-4 py-3 text-gray-300 text-sm">{quote.date}</td>
-                        <td className="px-4 py-3 font-bold text-white text-sm">{quote.amount}</td>
+                        <td className="px-4 py-3 text-gray-300 text-sm">
+                          {quote.quotation_date || quote.created_at?.split('T')[0] || 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 font-bold text-white text-sm">Rs. {parseFloat(quote.final_amount || quote.total_amount || 0).toLocaleString()}</td>
                         <td className="px-4 py-3">
-                          <span className={`px-3 py-1 rounded text-xs font-medium ${getPaymentStatusColor(quote.paymentStatus)}`}>
-                            {quote.paymentStatus}
+                          <span className={`px-3 py-1 rounded text-xs font-medium ${getPaymentStatusColor(quote.payment_status || 'Pending')}`}>
+                            {quote.payment_status || 'Pending'}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`px-3 py-1 rounded text-xs font-medium ${getProjectStatusColor(quote.projectStatus)}`}>
-                            {quote.projectStatus}
+                          <span className={`px-3 py-1 rounded text-xs font-medium ${getProjectStatusColor(quote.project_status || 'Planning')}`}>
+                            {quote.project_status || 'Planning'}
                           </span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
                             <button 
-                              onClick={() => navigate(`/quotation/${quote.id}`)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors"
+                              onClick={() => navigate(`/create-quotation`, { state: { editQuotation: quote } })}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors"
+                              title="Edit/View Details"
                             >
-                              View
+                              Edit/View
                             </button>
-                            <button className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm font-medium transition-colors">
+                            <button 
+                              onClick={() => handleDownloadPdf(quote.id)}
+                              disabled={downloadingPdf === quote.id}
+                              className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1"
+                              title="Download PDF"
+                            >
+                              {downloadingPdf === quote.id ? (
+                                <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                              ) : <FiFileText />}
+                              PDF
+                            </button>
+                            <button className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors">
                               Update Payment
                             </button>
                           </div>

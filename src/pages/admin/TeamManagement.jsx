@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import API, { getTeamStats } from "../../api/api";
+import API, { getTeamStats, createManager } from "../../api/api";
+import CreateManagerForm from "./CreateManagerForm";
 import { 
-  FiUsers, FiSearch, FiFilter, FiTrendingUp, FiCheckCircle, 
-  FiMail, FiTarget, FiChevronRight, FiUser, FiActivity 
+  FiMail, FiTarget, FiChevronRight, FiUser, FiActivity, FiPlus, FiXCircle, FiUsers, FiSearch, FiFilter, FiCheckCircle
 } from "react-icons/fi";
 
 const TeamManagement = () => {
@@ -18,6 +18,8 @@ const TeamManagement = () => {
   const [teamData, setTeamData] = useState([]);
   const [stats, setStats] = useState({ managers: 0, salespersons: 0 });
   const [searchTerm, setSearchTerm] = useState("");
+  const [showCreateManagerForm, setShowCreateManagerForm] = useState(false);
+  const [dialog, setDialog] = useState({ show: false, title: '', message: '', type: 'success' });
 
   useEffect(() => {
     fetchTeamData();
@@ -77,6 +79,75 @@ const TeamManagement = () => {
     }
   };
 
+  const handleCreateManager = async (managerData) => {
+    try {
+      const payload = {
+        name: managerData.name,
+        email: managerData.email,
+        password: managerData.password,
+        password_confirmation: managerData.confirmPassword,
+        phone: managerData.contact,
+        address: managerData.address,
+        region: managerData.region,
+        role: 'manager',
+        admin_id: user.id,
+      };
+
+      const response = await createManager(payload);
+
+      if (response.data.success) {
+        setDialog({
+          show: true,
+          title: "Manager Created",
+          message: response.data.message || "Manager account has been created successfully.",
+          type: "success"
+        });
+        setShowCreateManagerForm(false);
+        fetchTeamData(); // Refresh the list
+      }
+    } catch (err) {
+      console.error("Error creating manager:", err);
+      const errorMsg = err.response?.data?.message || err.response?.data?.error || "Failed to create manager";
+      setDialog({
+        show: true,
+        title: "Creation Error",
+        message: errorMsg,
+        type: "error"
+      });
+    }
+  };
+
+  // Success/Error Dialog Component
+  const SuccessErrorDialog = ({ show, title, message, type, onClose }) => {
+    if (!show) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-[60] backdrop-blur-sm animate-in fade-in duration-200">
+        <div className="bg-gray-800 rounded-2xl border border-gray-700 w-full max-w-sm shadow-2xl overflow-hidden transform scale-100 animate-in zoom-in-95 duration-200">
+          <div className="p-8 text-center">
+            <div className={`w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center text-5xl ${
+              type === 'success' ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'
+            }`}>
+              {type === 'success' ? <FiCheckCircle /> : <FiXCircle />}
+            </div>
+            <h3 className="text-2xl font-bold text-white mb-2">{title}</h3>
+            <p className="text-gray-400 leading-relaxed mb-8">{message}</p>
+            <button
+              onClick={onClose}
+              className={`w-full py-3 rounded-xl font-bold text-lg transition-all shadow-lg active:scale-95 ${
+                type === 'success'
+                  ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-600/20'
+                  : 'bg-red-600 hover:bg-red-700 text-white shadow-red-600/20'
+              }`}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const filteredData = teamData.filter(user => {
     const isCorrectRole = activeTab === "managers" 
       ? (user.manager_id === null || user.role?.toLowerCase() === 'manager')
@@ -112,27 +183,37 @@ const TeamManagement = () => {
           </p>
         </div>
 
-        <div className="flex bg-gray-800 p-1 rounded-xl border border-gray-700">
+        <div className="flex flex-col sm:flex-row items-center gap-4">
           <button
-            onClick={() => setActiveTab("managers")}
-            className={`px-6 py-2 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2 ${
-              activeTab === "managers" 
-                ? "bg-blue-600 text-white shadow-lg" 
-                : "text-gray-400 hover:text-white"
-            }`}
+            onClick={() => setShowCreateManagerForm(true)}
+            className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold transition-all duration-200 flex items-center gap-2 shadow-lg shadow-purple-600/20 hover:shadow-purple-600/40 active:scale-95"
           >
-            <FiUser /> Managers ({stats.managers})
+            <FiPlus className="text-lg" />
+            <span>Create New Manager</span>
           </button>
-          <button
-            onClick={() => setActiveTab("salespersons")}
-            className={`px-6 py-2 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2 ${
-              activeTab === "salespersons" 
-                ? "bg-indigo-600 text-white shadow-lg" 
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            <FiUsers /> Salespersons ({stats.salespersons})
-          </button>
+
+          <div className="flex bg-gray-800 p-1 rounded-xl border border-gray-700">
+            <button
+              onClick={() => setActiveTab("managers")}
+              className={`px-6 py-2 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2 ${
+                activeTab === "managers"
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <FiUser /> Managers ({stats.managers})
+            </button>
+            <button
+              onClick={() => setActiveTab("salespersons")}
+              className={`px-6 py-2 rounded-lg font-semibold transition-all duration-200 flex items-center gap-2 ${
+                activeTab === "salespersons"
+                  ? "bg-indigo-600 text-white shadow-lg"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              <FiUsers /> Salespersons ({stats.salespersons})
+            </button>
+          </div>
         </div>
       </div>
 
@@ -286,9 +367,26 @@ const TeamManagement = () => {
               </tbody>
             </table>
           )}
-        </div>
       </div>
     </div>
+
+    {/* Create Manager Form Modal */}
+    {showCreateManagerForm && (
+      <CreateManagerForm
+        onClose={() => setShowCreateManagerForm(false)}
+        onSubmit={handleCreateManager}
+      />
+    )}
+
+    {/* Success/Error Dialog */}
+    <SuccessErrorDialog
+      show={dialog.show}
+      title={dialog.title}
+      message={dialog.message}
+      type={dialog.type}
+      onClose={() => setDialog({ ...dialog, show: false })}
+    />
+  </div>
   );
 };
 

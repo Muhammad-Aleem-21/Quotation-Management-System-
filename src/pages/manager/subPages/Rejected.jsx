@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ManagerNavbar from "../../../components/ManagerNavbar";
-import { FiSearch, FiX, FiDownload } from 'react-icons/fi';
+import { FiSearch, FiX, FiDownload, FiFileText } from 'react-icons/fi';
+import API, { getQuotations, getTeamStats, generateQuotationPdf } from '../../../api/api';
 
 const Rejected = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -14,129 +15,80 @@ const Rejected = () => {
   });
   const navigate = useNavigate();
 
-  // Dummy data for rejected quotations
-  const rejectedQuotations = useMemo(() => [
-    {
-      id: 'QT-101',
-      salesperson: 'John D.',
-      salespersonId: 'SP-001',
-      customer: 'TechCorp Solutions',
-      email: 'contact@techcorp.com',
-      service: 'Website Redesign Project',
-      date: '2024-01-20',
-      rejectedDate: '2024-01-21',
-      amount: '$15,200',
-      rejectedBy: 'Manager A',
-      reason: 'Budget too high',
-      description: 'Client budget constraints, quoted amount exceeded their limit',
-      daysAgo: 5
-    },
-    {
-      id: 'QT-102',
-      salesperson: 'Sarah M.',
-      salespersonId: 'SP-002',
-      customer: 'Global Logistics Inc',
-      email: 'procurement@globallogistics.com',
-      service: 'CRM System Implementation',
-      date: '2024-01-18',
-      rejectedDate: '2024-01-19',
-      amount: '$8,500',
-      rejectedBy: 'Manager B',
-      reason: 'Requirements mismatch',
-      description: 'Our solution did not meet specific client requirements',
-      daysAgo: 7
-    },
-    {
-      id: 'QT-103',
-      salesperson: 'Mike R.',
-      salespersonId: 'SP-003',
-      customer: 'MediCare Hospital',
-      email: 'it@medicarehospital.com',
-      service: 'Medical Equipment Supply',
-      date: '2024-01-15',
-      rejectedDate: '2024-01-16',
-      amount: '$22,000',
-      rejectedBy: 'Manager A',
-      reason: 'Technical limitations',
-      description: 'Unable to meet specific technical specifications',
-      daysAgo: 10
-    },
-    {
-      id: 'QT-104',
-      salesperson: 'Emily T.',
-      salespersonId: 'SP-004',
-      customer: 'EduTech Innovations',
-      email: 'admin@edutech.com',
-      service: 'Learning Management System',
-      date: '2024-01-12',
-      rejectedDate: '2024-01-13',
-      amount: '$12,500',
-      rejectedBy: 'Manager C',
-      reason: 'Budget too high',
-      description: 'Client found alternative provider at lower cost',
-      daysAgo: 13
-    },
-    {
-      id: 'QT-105',
-      salesperson: 'David L.',
-      salespersonId: 'SP-005',
-      customer: 'Green Energy Corp',
-      email: 'sales@greenenergy.com',
-      service: 'Solar Panel Installation',
-      date: '2024-01-10',
-      rejectedDate: '2024-01-11',
-      amount: '$18,300',
-      rejectedBy: 'Manager A',
-      reason: 'Scope too limited',
-      description: 'Client wanted additional features not included in quote',
-      daysAgo: 15
-    },
-    {
-      id: 'QT-106',
-      salesperson: 'John D.',
-      salespersonId: 'SP-001',
-      customer: 'Retail Chain Stores',
-      email: 'it@retailchain.com',
-      service: 'POS System Upgrade',
-      date: '2024-01-08',
-      rejectedDate: '2024-01-09',
-      amount: '$30,000',
-      rejectedBy: 'Manager B',
-      reason: 'Timeline issues',
-      description: 'Unable to meet client required delivery timeline',
-      daysAgo: 17
-    },
-    {
-      id: 'QT-107',
-      salesperson: 'Sarah M.',
-      salespersonId: 'SP-002',
-      customer: 'Food Delivery Network',
-      email: 'tech@foodnetwork.com',
-      service: 'Mobile App Development',
-      date: '2024-01-05',
-      rejectedDate: '2024-01-06',
-      amount: '$25,000',
-      rejectedBy: 'Manager C',
-      reason: 'Requirements mismatch',
-      description: 'Client changed requirements after quote submission',
-      daysAgo: 20
-    },
-    {
-      id: 'QT-108',
-      salesperson: 'Mike R.',
-      salespersonId: 'SP-003',
-      customer: 'Smart Home Solutions',
-      email: 'info@smarthome.com',
-      service: 'IoT Integration',
-      date: '2024-01-02',
-      rejectedDate: '2024-01-03',
-      amount: '$14,800',
-      rejectedBy: 'Manager A',
-      reason: 'Technical limitations',
-      description: 'Lack of technical expertise for specific integration',
-      daysAgo: 23
-    },
-  ], []);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [quotations, setQuotations] = useState([]);
+  const [downloadingPdf, setDownloadingPdf] = useState(null);
+  
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userId = String(user.id || "");
+
+  useEffect(() => {
+    fetchRejectedQuotations();
+  }, []);
+
+  const fetchRejectedQuotations = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [quotesRes, statsRes] = await Promise.all([
+        getQuotations(),
+        getTeamStats()
+      ]);
+
+      if (quotesRes.data && statsRes.data) {
+        const allQuotes = quotesRes.data.data || quotesRes.data.quotations || quotesRes.data || [];
+        const myTeam = statsRes.data.dashboard_stats?.my_team || [];
+        
+        // Get IDs of all salespersons in this manager's team (including the manager themselves)
+        const teamMemberIds = myTeam
+          .filter(member => String(member.manager_id) === userId || String(member.parent_id) === userId || String(member.id) === userId)
+          .map(member => String(member.id));
+        
+        if (!teamMemberIds.includes(userId)) teamMemberIds.push(userId);
+
+        // Filter quotations: created by a team member AND status is rejected
+        const rejectedQuotes = allQuotes.filter(quote => {
+          const creatorId = String(quote.user_id || quote.salesperson_id || quote.user?.id || "");
+          const status = (quote.status || "").toLowerCase();
+          return teamMemberIds.includes(creatorId) && status === 'rejected';
+        });
+
+        setQuotations(rejectedQuotes);
+      }
+    } catch (err) {
+      console.error("Error fetching rejected quotations:", err);
+      setError("Failed to load rejected quotations");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const rejectedQuotations = quotations;
+
+  // Handle PDF Download
+  const handleDownloadPdf = async (id) => {
+    try {
+      setDownloadingPdf(id);
+      const response = await generateQuotationPdf(id);
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Quotation-${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error downloading PDF:", err);
+      alert("Failed to download PDF. Please try again.");
+    } finally {
+      setDownloadingPdf(null);
+    }
+  };
 
   // Get unique salespersons for filter
   const salespersons = useMemo(() => {
@@ -164,11 +116,11 @@ const Rejected = () => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       result = result.filter(quote =>
-        quote.customer.toLowerCase().includes(query) ||
-        quote.id.toLowerCase().includes(query) ||
-        quote.service.toLowerCase().includes(query) ||
-        quote.salesperson.toLowerCase().includes(query) ||
-        quote.rejectedBy.toLowerCase().includes(query)
+        (quote.client_name || quote.customer || "").toLowerCase().includes(query) ||
+        String(quote.id).toLowerCase().includes(query) ||
+        (quote.service_name || quote.service || "").toLowerCase().includes(query) ||
+        (quote.user?.name || quote.salesperson || "").toLowerCase().includes(query) ||
+        (quote.rejected_by_name || quote.rejectedBy || "").toLowerCase().includes(query)
       );
     }
     
@@ -191,14 +143,19 @@ const Rejected = () => {
           comparison = new Date(b.date) - new Date(a.date);
           break;
         case 'amount':
-          comparison = parseFloat(b.amount.replace('$', '').replace(',', '')) - 
-                     parseFloat(a.amount.replace('$', '').replace(',', ''));
+            comparison = parseFloat(String(b.final_amount || b.total_amount || 0).replace('$', '').replace(',', '')) - 
+                         parseFloat(String(a.final_amount || a.total_amount || 0).replace('$', '').replace(',', ''));
           break;
         case 'salesperson':
-          comparison = a.salesperson.localeCompare(b.salesperson);
+          comparison = (a.user?.name || a.salesperson || "").localeCompare(b.user?.name || b.salesperson || "");
           break;
         case 'daysAgo':
-          comparison = b.daysAgo - a.daysAgo;
+          {
+            const dateB = new Date(b.rejected_at || b.date);
+            const dateA = new Date(a.rejected_at || a.date);
+            comparison = Math.floor((new Date() - dateB) / (1000 * 60 * 60 * 24)) - 
+                         Math.floor((new Date() - dateA) / (1000 * 60 * 60 * 24));
+          }
           break;
         default:
           comparison = new Date(b.date) - new Date(a.date);
@@ -470,14 +427,15 @@ const Rejected = () => {
                 <thead className="bg-gray-700 hidden sm:table-header-group">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">ID</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Customer</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Service</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Date</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Amount</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Rejected By</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Reason</th>
+                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Reason</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Days Ago</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Actions</th>
                   </tr>
                 </thead>
                 
@@ -547,6 +505,25 @@ const Rejected = () => {
                               <p className="text-gray-400 text-xs">Reason Details</p>
                               <p className="text-gray-300 text-xs mt-1">{quote.description}</p>
                             </div>
+                            
+                            <div className="flex gap-2 pt-2">
+                              <button 
+                                onClick={() => navigate(`/create-quotation`, { state: { editQuotation: quote } })}
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-xs font-medium transition-colors text-center"
+                              >
+                                Edit/View
+                              </button>
+                              <button 
+                                onClick={() => handleDownloadPdf(quote.id)}
+                                disabled={downloadingPdf === quote.id}
+                                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded text-xs font-medium transition-colors flex items-center justify-center gap-1"
+                              >
+                                {downloadingPdf === quote.id ? (
+                                  <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                ) : <FiFileText className="text-sm" />}
+                                PDF
+                              </button>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -554,36 +531,63 @@ const Rejected = () => {
                       {/* Desktop/Tablet View - Table Layout */}
                       <tr key={`desktop-${quote.id}`} className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
                         <td className="px-4 py-3">
-                          <span className="font-bold text-red-400 text-sm">{quote.id}</span>
+                          <span className="font-bold text-red-400 text-sm">#{quote.id}</span>
                         </td>
                         <td className="px-4 py-3">
-                          <div className="font-semibold text-white text-sm">{quote.customer}</div>
-                          <div className="text-xs text-gray-400">{quote.email}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-green-400 font-medium text-sm">{quote.service}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="text-purple-300 text-sm">{quote.salesperson}</div>
-                          <div className="text-xs text-gray-400">{quote.salespersonId}</div>
-                        </td>
-                        <td className="px-4 py-3 text-gray-300 text-sm">{quote.date}</td>
-                        <td className="px-4 py-3 font-bold text-white text-sm">{quote.amount}</td>
-                        <td className="px-4 py-3 text-orange-300 text-sm">{quote.rejectedBy}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-col gap-1">
-                            <span className={`px-3 py-1 rounded text-xs font-medium ${getReasonColor(quote.reason)}`}>
-                              {quote.reason}
-                            </span>
-                            <div className="text-xs text-gray-400 max-w-xs truncate">
-                              {quote.description}
+                          <div className="flex items-center gap-2">
+                            <FiUser className="text-purple-300" />
+                            <div>
+                                <div className="text-purple-300 text-sm font-medium">{quote.user?.name || quote.salesperson || 'N/A'}</div>
+                                <div className="text-xs text-gray-400">ID: #{quote.user_id || quote.salesperson_id}</div>
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`px-3 py-1 rounded text-xs font-medium ${getDaysAgoColor(quote.daysAgo)}`}>
-                            {quote.daysAgo} days
+                          <div className="font-semibold text-white text-sm">{quote.client_name || quote.customer}</div>
+                          <div className="text-xs text-gray-400">{quote.client_email || quote.email}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-green-400 font-medium text-sm">{quote.service_name || quote.service || 'N/A'}</span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-300 text-sm">{quote.quotation_date || quote.created_at?.split('T')[0] || 'N/A'}</td>
+                        <td className="px-4 py-3 font-bold text-white text-sm">Rs. {parseFloat(quote.final_amount || quote.total_amount || 0).toLocaleString()}</td>
+                        <td className="px-4 py-3 text-orange-300 text-sm">{quote.rejected_by_name || 'System'}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-1">
+                            <span className={`px-3 py-1 rounded text-xs font-medium ${getReasonColor(quote.rejection_reason || 'Other')}`}>
+                              {quote.rejection_reason || 'Other'}
+                            </span>
+                            <div className="text-xs text-gray-400 max-w-xs truncate">
+                              {quote.rejection_notes || quote.description}
+                            </div>
+                          </div>
+                        </td>
+                         <td className="px-4 py-3">
+                          <span className={`px-3 py-1 rounded text-xs font-medium ${getDaysAgoColor(Math.floor((new Date() - new Date(quote.rejected_at || quote.created_at || new Date())) / (1000 * 60 * 60 * 24)))}`}>
+                            {Math.floor((new Date() - new Date(quote.rejected_at || quote.created_at || new Date())) / (1000 * 60 * 60 * 24))} days
                           </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => navigate(`/create-quotation`, { state: { editQuotation: quote } })}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors"
+                              title="Edit/View Details"
+                            >
+                              Edit/View
+                            </button>
+                            <button 
+                              onClick={() => handleDownloadPdf(quote.id)}
+                              disabled={downloadingPdf === quote.id}
+                              className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1"
+                              title="Download PDF"
+                            >
+                              {downloadingPdf === quote.id ? (
+                                <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                              ) : <FiFileText />}
+                              PDF
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     </>
@@ -628,7 +632,7 @@ const Rejected = () => {
             <div className="bg-gray-800 p-4 rounded-xl border border-gray-700">
               <div className="text-gray-400 text-sm">Total Value Lost</div>
               <div className="text-2xl font-bold text-orange-400">
-                $147,300
+                Rs. {rejectedQuotations.reduce((sum, q) => sum + parseFloat(q.final_amount || q.total_amount || 0), 0).toLocaleString()}
               </div>
             </div>
           </div>

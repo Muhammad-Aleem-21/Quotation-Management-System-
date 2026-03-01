@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getTeamStats } from "../../api/api";
+import { getTeamStats, getQuotations } from "../../api/api";
 import {
   BarChart,
   Bar,
@@ -57,22 +57,40 @@ const ManagerDashboard = () => {
       const user = JSON.parse(localStorage.getItem("user") || "{}");
       const userId = user.id?.toString();
 
-      const response = await getTeamStats();
-      if (response.data.success && response.data.dashboard_stats) {
-        const ds = response.data.dashboard_stats;
+      const [statsResponse, quotesResponse] = await Promise.all([
+        getTeamStats(),
+        getQuotations()
+      ]);
+
+      if (statsResponse.data.success && statsResponse.data.dashboard_stats) {
+        const ds = statsResponse.data.dashboard_stats;
+        const myTeam = ds.my_team || [];
         
-        // Filter my_team by the logged-in manager's ID
-        const myActualTeam = (ds.my_team || []).filter(member => 
-          member.manager_id?.toString() === userId || 
-          member.parent_id?.toString() === userId
-        );
+        // Get IDs of all salespersons in this manager's team (including the manager)
+        const teamMemberIds = myTeam
+          .filter(member => 
+            member.manager_id?.toString() === userId || 
+            member.parent_id?.toString() === userId ||
+            member.id?.toString() === userId
+          )
+          .map(member => member.id?.toString());
+        
+        if (!teamMemberIds.includes(userId)) teamMemberIds.push(userId);
+
+        const allQuotes = quotesResponse.data?.data || quotesResponse.data?.quotations || quotesResponse.data || [];
+        const teamQuotes = allQuotes.filter(quote => {
+          const creatorId = String(quote.user_id || quote.salesperson_id || quote.user?.id || "");
+          return teamMemberIds.includes(creatorId);
+        });
 
         setStats({
-          totalSalespersons: myActualTeam.length,
-          activeQuotations: ds.active_quotations || 0,
-          teamRevenue: ds.team_revenue || 0,
-          pendingApprovals: ds.pending_approvals || 0,
-          rejectedQuotations: ds.rejected_quotations || 0
+          totalSalespersons: teamMemberIds.length - 1, // Exclude manager from salesperson count
+          activeQuotations: teamQuotes.filter(q => ['approved', 'accepted'].includes(q.status?.toLowerCase())).length,
+          teamRevenue: teamQuotes
+            .filter(q => ['approved', 'accepted', 'win'].includes(q.status?.toLowerCase()))
+            .reduce((sum, q) => sum + parseFloat(String(q.final_amount || q.total_amount || 0).replace(/[$,]/g, '')), 0),
+          pendingApprovals: teamQuotes.filter(q => ['pending', 'submitted', 'revised'].includes(q.status?.toLowerCase())).length,
+          rejectedQuotations: teamQuotes.filter(q => q.status?.toLowerCase() === 'rejected').length
         });
       }
     } catch (error) {
@@ -158,7 +176,7 @@ const ManagerDashboard = () => {
                 Team Revenue
               </h2>
               <p className="text-2xl sm:text-3xl font-bold text-purple-400 mt-1 sm:mt-2">
-                {loading ? "..." : (typeof stats.teamRevenue === 'number' ? `$${stats.teamRevenue.toLocaleString()}` : stats.teamRevenue)}
+                {loading ? "..." : (typeof stats.teamRevenue === 'number' ? `Rs. ${stats.teamRevenue.toLocaleString()}` : stats.teamRevenue)}
               </p>
             </div>
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-600 rounded-xl flex items-center justify-center text-white text-lg sm:text-xl">

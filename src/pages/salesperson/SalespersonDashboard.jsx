@@ -26,6 +26,7 @@ const SalespersonDashboard = () => {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [quotationStats, setQuotationStats] = useState({
     approved: 0,
     rejected: 0,
@@ -72,49 +73,70 @@ const SalespersonDashboard = () => {
   const fetchQuotationStats = async () => {
     try {
       setLoading(true);
-      // Get the salesperson ID from the user profile
-      const profileResponse = await API.get("/profile");
-      if (profileResponse.data.success) {
-        const salespersonId = profileResponse.data.profile.id;
+      setError(null);
+      
+      const response = await API.get('/quotations');
+      if (response.data && response.data.success) {
+        const allQuotes = response.data.data || response.data.quotations || [];
         
-        // Fetch approved quotations
-        try {
-          // const approvedResponse = await API.get(`/quotations/${salespersonId}/approve`);
-          const approvedResponse = { data: { quotations: [] } };
-          if (approvedResponse.data) {
-            const approvedCount = approvedResponse.data.quotations?.length || 
-                                 approvedResponse.data.data?.length || 
-                                 approvedResponse.data.length || 0;
-            
-            setQuotationStats(prev => ({
-              ...prev,
-              approved: approvedCount
-            }));
-          }
-        } catch (error) {
-          console.warn("Error fetching approved quotations:", error.message);
-        }
+        // Filter for current salesperson's quotations
+        const myQuotes = allQuotes.filter(quote => 
+          String(quote.user_id || quote.salesperson_id || quote.user?.id) === String(user.id)
+        );
 
-        // Fetch rejected quotations
-        try {
-          // const rejectedResponse = await API.get(`/quotations/${salespersonId}/reject`);
-          const rejectedResponse = { data: { quotations: [] } };
-          if (rejectedResponse.data) {
-            const rejectedCount = rejectedResponse.data.quotations?.length || 
-                                 rejectedResponse.data.data?.length || 
-                                 rejectedResponse.data.length || 0;
-            
-            setQuotationStats(prev => ({
-              ...prev,
-              rejected: rejectedCount
-            }));
+        const stats = {
+          approved: 0,
+          rejected: 0,
+          pending: 0,
+          win: 0,
+        };
+
+        let totalRevenue = 0;
+
+        myQuotes.forEach(quote => {
+          const status = (quote.status || "").toLowerCase();
+          if (status === 'approved' || status === 'accepted') stats.approved++;
+          else if (status === 'rejected') stats.rejected++;
+          else if (status === 'pending' || status === 'submitted') stats.pending++;
+          else if (status === 'win') {
+            stats.win++;
+            totalRevenue += parseFloat(quote.final_amount || quote.total_amount || 0);
           }
-        } catch (error) {
-          console.warn("Error fetching rejected quotations:", error.message);
-        }
+        });
+
+        setQuotationStats(stats);
+        setPerformanceStats(prev => ({
+          ...prev,
+          revenue: totalRevenue,
+          conversions: stats.win + stats.approved
+        }));
+
+        // Mock trend data based on actually fetched quotes (grouped by month)
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const currentMonthIdx = new Date().getMonth();
+        const trendData = months.slice(0, currentMonthIdx + 1).map(month => ({
+          month,
+          approved: 0,
+          rejected: 0,
+          win: 0
+        }));
+
+        myQuotes.forEach(quote => {
+          const date = new Date(quote.created_at || quote.quotation_date);
+          const monthIdx = date.getMonth();
+          if (monthIdx <= currentMonthIdx) {
+            const status = (quote.status || "").toLowerCase();
+            if (status === 'approved' || status === 'accepted') trendData[monthIdx].approved++;
+            else if (status === 'rejected') trendData[monthIdx].rejected++;
+            else if (status === 'win') trendData[monthIdx].win++;
+          }
+        });
+
+        setQuotationTrend(trendData);
       }
-    } catch (error) {
-      console.error("Error fetching salesperson profile:", error);
+    } catch (err) {
+      console.error("Error fetching salesperson stats:", err);
+      setError("Failed to load dashboard statistics");
     } finally {
       setLoading(false);
     }
@@ -135,6 +157,11 @@ const SalespersonDashboard = () => {
         <p className="text-gray-400 mt-1">
           Welcome back, <span className="text-orange-400 font-semibold">{user.name || 'Salesperson'}</span>! Overview of your quotation performance
         </p>
+        {error && (
+          <div className="mt-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
+            {error}
+          </div>
+        )}
       </div>
 
       {/* Performance Stats Cards */}
@@ -188,8 +215,8 @@ const SalespersonDashboard = () => {
           <div className="relative z-10">
             <p className="text-emerald-300 text-sm font-medium uppercase tracking-wider">Monthly Revenue</p>
             <div className="flex items-end gap-2 mt-2">
-              <h2 className="text-3xl sm:text-4xl font-black text-white">${performanceStats.revenue.toLocaleString()}</h2>
-              <span className="text-emerald-400 text-xs mb-1 mb-2 font-semibold">Target: $20k</span>
+              <h2 className="text-3xl sm:text-4xl font-black text-white">Rs. {performanceStats.revenue.toLocaleString()}</h2>
+              <span className="text-emerald-400 text-xs mb-1 mb-2 font-semibold">Target: Rs. 20k</span>
             </div>
             <div className="mt-4 flex items-center gap-2">
               <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
@@ -210,7 +237,7 @@ const SalespersonDashboard = () => {
         
         <div 
           className="bg-gray-800 p-4 sm:p-6 rounded-xl border border-gray-700 hover:border-green-500 transition-colors duration-200 cursor-pointer"
-          onClick={() => navigate('/accepted-quotations')}
+          onClick={() => navigate('/my-quotation', { state: { filterStatus: 'approved' } })}
         >
           <div className="flex justify-between items-center">
             <div>
@@ -233,7 +260,7 @@ const SalespersonDashboard = () => {
 
         <div 
           className="bg-gray-800 p-4 sm:p-6 rounded-xl border border-gray-700 hover:border-red-500 transition-colors duration-200 cursor-pointer"
-          onClick={() => navigate('/rejected-quotations')}
+          onClick={() => navigate('/my-quotation', { state: { filterStatus: 'rejected' } })}
         >
           <div className="flex justify-between items-center">
             <div>
@@ -256,7 +283,7 @@ const SalespersonDashboard = () => {
          
         <div 
           className="bg-gray-800 p-4 sm:p-6 rounded-xl border border-gray-700 hover:border-yellow-500 transition-colors duration-200 cursor-pointer"
-          onClick={() => navigate('/pending-quotations')}
+          onClick={() => navigate('/my-quotation', { state: { filterStatus: 'pending' } })}
         >
           <div className="flex justify-between items-center">
             <div>
@@ -274,7 +301,7 @@ const SalespersonDashboard = () => {
 
         <div 
           className="bg-gray-800 p-4 sm:p-6 rounded-xl border border-gray-700 hover:border-blue-500 transition-colors duration-200 cursor-pointer"
-          onClick={() => navigate('/win-quotations')}
+          onClick={() => navigate('/my-quotation', { state: { filterStatus: 'win' } })}
         >
           <div className="flex justify-between items-center">
             <div>
