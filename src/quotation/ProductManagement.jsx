@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   getCategories,
   createCategory,
@@ -8,6 +8,10 @@ import {
   getVariantTypes,
   getVariantOptions,
   setProductPriceMatrix,
+  getProducts,
+  bulkUpdateProductPrices,
+  deleteProduct,
+  updateProduct,
 } from "../api/api";
 
 const cableData = {
@@ -743,12 +747,15 @@ const ProductManagement = () => {
   const [selectedSubCategory, setSelectedSubCategory] = useState("");
   const [priceFields, setPriceFields] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [allProducts, setAllProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
 
   // variant-related states
   const [variantTypes, setVariantTypes] = useState([]);
   const [variantOptions, setVariantOptions] = useState([]);
   const [selectedVariantType, setSelectedVariantType] = useState("");
   const [selectedVariantOption, setSelectedVariantOption] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Price matrix: { [core_type_id]: { price: number, coil_length: number } }
   const [corePrices, setCorePrices] = useState({});
@@ -801,15 +808,17 @@ const ProductManagement = () => {
   // Fetch data from DB
   const fetchData = async () => {
     try {
-      const [catRes, coreRes, varTypeRes] = await Promise.all([
+      const [catRes, coreRes, varTypeRes, prodRes] = await Promise.all([
         getCategories(),
         getCoreTypes(),
         getVariantTypes(),
+        getProducts(),
       ]);
 
       console.log("Fetched Categories:", catRes.data);
       console.log("Fetched Core Types:", coreRes.data);
       console.log("Fetched Variant Types:", varTypeRes.data);
+      console.log("Fetched Products:", prodRes.data);
 
       // Handle common response patterns for categories
       const categoriesData =
@@ -831,8 +840,30 @@ const ProductManagement = () => {
         varTypeRes.data?.variant_types ||
         (Array.isArray(varTypeRes.data) ? varTypeRes.data : []);
       setVariantTypes(variantTypesData);
+
+      // record products
+      const productsData =
+        prodRes.data?.data ||
+        prodRes.data?.products ||
+        (Array.isArray(prodRes.data) ? prodRes.data : []);
+      setAllProducts(productsData);
     } catch (error) {
       console.error("Error fetching data:", error);
+    }
+  };
+
+  const handleDeleteProduct = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this product?")) return;
+    try {
+      setSubmitting(true);
+      await deleteProduct(id);
+      alert("Product deleted successfully");
+      fetchData();
+    } catch (error) {
+      console.error("Delete Error:", error);
+      alert("Failed to delete product: " + (error.response?.data?.message || error.message));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -841,39 +872,57 @@ const ProductManagement = () => {
   }, []);
 
   // Combine DB categories with static categories
-  const categories = [
-    ...new Set([...Object.keys(cableData), ...dbCategories.map((c) => c.name)]),
-  ];
+  const categories = useMemo(() => {
+    return [
+      ...new Set([...Object.keys(cableData), ...dbCategories.map((c) => c.name)]),
+    ];
+  }, [dbCategories]);
 
   // Helper function to get cable list based on category
   const getCableList = () => {
     if (!selectedCategory) return [];
 
-    switch (selectedCategory) {
-      case "Imperial Sizes BS-2004":
-      case "Co-axial Cables(RG-Type)":
-      case "Telephone & Intercom Cables":
-        return cableData[selectedCategory] || [];
+    const list = [];
+    
+    // 1. Add static products if they exist for this category
+    if (cableData[selectedCategory]) {
+      switch (selectedCategory) {
+        case "Imperial Sizes BS-2004":
+        case "Co-axial Cables(RG-Type)":
+        case "Telephone & Intercom Cables":
+          list.push(...(cableData[selectedCategory] || []));
+          break;
 
-      case "General cables":
-      case "Flexible Cables BS 6500 IEC 60228":
-        return cableData[selectedCategory] || [];
+        case "General cables":
+        case "Flexible Cables BS 6500 IEC 60228":
+          list.push(...(cableData[selectedCategory] || []));
+          break;
 
-      case "DC Solar Flexible Photovoltic UV-Resistant Cable":
-        return cableData[selectedCategory].cables || [];
+        case "DC Solar Flexible Photovoltic UV-Resistant Cable":
+          list.push(...(cableData[selectedCategory].cables || []));
+          break;
 
-      case "POWER CABLES":
-      case "ALUMINIUM CABLES": {
-        if (!selectedSubCategory) return [];
-        const data = cableData[selectedCategory];
-        return selectedSubCategory === "UN-ARMOURED CABLES"
-          ? data.unarmoured
-          : data.armoured;
+        case "POWER CABLES":
+        case "ALUMINIUM CABLES": {
+          if (selectedSubCategory) {
+            const data = cableData[selectedCategory];
+            list.push(...(selectedSubCategory === "UN-ARMOURED CABLES"
+              ? data.unarmoured
+              : data.armoured));
+          }
+          break;
+        }
       }
-
-      default:
-        return [];
     }
+
+    // 2. Add database products
+    const dbFiltered = allProducts.filter(p => {
+      const cat = dbCategories.find(c => String(c.id) === String(p.category_id));
+      return cat && cat.name === selectedCategory;
+    });
+    list.push(...dbFiltered);
+
+    return list;
   };
 
   // Handle category change
@@ -899,57 +948,131 @@ const ProductManagement = () => {
     setSelectedCable(cable);
 
     // Extract current prices based on category
-    const cableList = getCableList();
-    const selectedCableData = cableList.find((item) => {
-      if (
-        selectedCategory === "DC Solar Flexible Photovoltic UV-Resistant Cable"
-      ) {
-        return item.name === cable;
-      } else if (
-        selectedCategory === "General cables" ||
-        selectedCategory === "Flexible Cables BS 6500 IEC 60228"
-      ) {
-        return item.description === cable;
-      } else if (
-        selectedCategory === "POWER CABLES" ||
-        selectedCategory === "ALUMINIUM CABLES"
-      ) {
-        return item.size === cable;
-      } else {
-        return item.name === cable;
-      }
-    });
+    let selectedCableData = allProducts.find(p => String(p.id) === String(cable));
+    
+    // If not found in DB products, check static products
+    if (!selectedCableData) {
+      const cableList = getCableList();
+      selectedCableData = cableList.find((item) => {
+        const name = item.name || item.description || item.size;
+        
+        if (cableData[selectedCategory]) {
+          if (selectedCategory === "DC Solar Flexible Photovoltic UV-Resistant Cable") {
+            return item.name === cable;
+          } else if (selectedCategory === "General cables" || selectedCategory === "Flexible Cables BS 6500 IEC 60228") {
+            return item.description === cable;
+          } else if (selectedCategory === "POWER CABLES" || selectedCategory === "ALUMINIUM CABLES") {
+            return item.size === cable;
+          }
+        }
+        
+        return name === cable;
+      });
+    }
 
     if (selectedCableData) {
-      if (
-        selectedCategory === "DC Solar Flexible Photovoltic UV-Resistant Cable"
-      ) {
-        setPriceFields({
-          plainPrice: selectedCableData.plainPrice || 0,
-          tinnedPrice: selectedCableData.tinnedPrice || 0,
+      if (selectedCableData.id) {
+        // Handle database products
+        // Populate newProduct state for editing
+        setNewProduct({
+          name: selectedCableData.name || "",
+          description: selectedCableData.description || "",
+          size: selectedCableData.size || "",
+          construction: selectedCableData.construction || "",
+          core_type: selectedCableData.core_type || "",
+          material: selectedCableData.material || "",
+          gauge: selectedCableData.gauge || "",
+          voltage_rating: selectedCableData.voltage_rating || "",
+          uom: selectedCableData.uom || "MTR",
+          base_price: selectedCableData.base_price || "",
+          coil_length: selectedCableData.coil_length || "",
+          category_name: selectedCableData.category?.name || "",
+          category_code: selectedCableData.category?.code || "",
         });
-      } else if (
-        selectedCategory === "General cables" ||
-        selectedCategory === "Flexible Cables BS 6500 IEC 60228"
-      ) {
-        setPriceFields(selectedCableData.prices || {});
-      } else if (
-        selectedCategory === "POWER CABLES" ||
-        selectedCategory === "ALUMINIUM CABLES"
-      ) {
-        setPriceFields(selectedCableData.prices || {});
-      } else {
-        setPriceFields({ price: selectedCableData.price || 0 });
+
+        // Set category to match
+        const catObj = selectedCableData.category || dbCategories.find(c => String(c.id) === String(selectedCableData.category_id));
+        if (catObj) {
+          setSelectedCategory(catObj.name);
+          setIsManualCategory(false);
+          setNewProduct(prev => ({
+            ...prev,
+            category_name: catObj.name,
+            category_code: catObj.code || ""
+          }));
+        }
+
+        // Populate priceFields using core_type_id as keys
+        const matrixFields = {};
+        const matrixPrices = {};
+        const coreTypeIds = [];
+        
+        if (Array.isArray(selectedCableData.price_matrix)) {
+          selectedCableData.price_matrix.forEach(item => {
+            const ctId = String(item.core_type_id);
+            matrixFields[ctId] = {
+              price: item.price,
+              coil_length: item.coil_length
+            };
+            matrixPrices[ctId] = {
+              price: item.price,
+              coil_length: item.coil_length || selectedCableData.coil_length || ""
+            };
+            coreTypeIds.push(ctId);
+          });
+        }
+        setPriceFields(matrixFields);
+        setCorePrices(matrixPrices);
+        setSelectedCoreTypeIds(coreTypeIds);
+      } else if (cableData[selectedCategory]) {
+        // Handle static categories
+        if (
+          selectedCategory === "DC Solar Flexible Photovoltic UV-Resistant Cable"
+        ) {
+          setPriceFields({
+            plainPrice: selectedCableData.plainPrice || 0,
+            tinnedPrice: selectedCableData.tinnedPrice || 0,
+          });
+        } else if (
+          selectedCategory === "General cables" ||
+          selectedCategory === "Flexible Cables BS 6500 IEC 60228"
+        ) {
+          setPriceFields(selectedCableData.prices || {});
+        } else if (
+          selectedCategory === "POWER CABLES" ||
+          selectedCategory === "ALUMINIUM CABLES"
+        ) {
+          setPriceFields(selectedCableData.prices || {});
+        } else {
+          setPriceFields({ price: selectedCableData.price || 0 });
+        }
       }
     }
   };
 
   // Handle price field change
   const handlePriceChange = (field, value) => {
-    setPriceFields((prev) => ({
-      ...prev,
-      [field]: value ? parseFloat(value) : 0,
-    }));
+    const val = value ? parseFloat(value) : 0;
+    
+    // Check if we are editing a database product or a static one
+    const cableList = getCableList();
+    const currentCable = cableList.find(c => String(c.id) === String(selectedCable));
+    
+    if (currentCable && currentCable.id) {
+      setPriceFields((prev) => ({
+        ...prev,
+        [field]: {
+          ...(prev[field] || {}),
+          price: val,
+          coil_length: prev[field]?.coil_length || 0,
+        },
+      }));
+    } else {
+      setPriceFields((prev) => ({
+        ...prev,
+        [field]: val,
+      }));
+    }
   };
 
   // variant type change handler
@@ -1132,10 +1255,6 @@ const ProductManagement = () => {
         const productData = {
           name: newProduct.name,
           display_name: newProduct.name,
-          code:
-            generateCode(newProduct.name) +
-            "_" +
-            Math.floor(Math.random() * 1000),
           description: newProduct.description,
           category_id: categoryId,
           sub_category: selectedSubCategory,
@@ -1214,19 +1333,95 @@ const ProductManagement = () => {
       return;
     }
 
-    console.log("Saving data:", {
-      mode,
-      category: selectedCategory,
-      subCategory: selectedSubCategory,
-      cable: selectedCable,
-      prices: priceFields,
-    });
-    alert("Price updated successfully!");
+    setSubmitting(true);
+    try {
+      if (mode === "edit") {
+        // Find the matching product to get its real ID
+        const selectedCableData = allProducts.find(p => String(p.id) === String(selectedCable));
+
+        if (!selectedCableData || !selectedCableData.id) {
+          alert("Could not identify the database product to update.");
+          setSubmitting(false);
+          return;
+        }
+
+        // 1. Determine Category ID
+        let categoryId = selectedCableData.category_id;
+        
+        // Only try to find/create a category if the name was changed manually
+        if (newProduct.category_name && newProduct.category_name !== (selectedCableData.category?.name || dbCategories.find(c => String(c.id) === String(selectedCableData.category_id))?.name)) {
+          const manualCode = newProduct.category_code ? newProduct.category_code.trim().replace(/\s+/g, "_") : "";
+          const inputCode = manualCode || generateCode(newProduct.category_name);
+
+          const existingCat = dbCategories.find(c => 
+            generateCode(c.name) === generateCode(newProduct.category_name) || (c.code && c.code === inputCode)
+          );
+
+          if (existingCat) {
+            categoryId = existingCat.id;
+          } else if (newProduct.category_name) {
+            try {
+              const categoryRes = await createCategory({
+                name: newProduct.category_name,
+                display_name: newProduct.category_name,
+                code: inputCode || generateCode(newProduct.category_name) || `cat_${Date.now()}`,
+              });
+              categoryId = categoryRes.data?.data?.id || categoryRes.data?.id || categoryRes.data?.category?.id;
+            } catch (catErr) {
+              console.warn("Could not create/select category, using existing:", categoryId);
+            }
+          }
+        }
+
+        // 2. Build price matrix
+        const priceMatrixEntries = Object.entries(corePrices)
+          .filter(([, val]) => (parseFloat(val.price) || 0) > 0)
+          .map(([coreId, val]) => ({
+            core_type_id: parseInt(coreId),
+            price: parseFloat(val.price) || 0,
+            coil_length: parseFloat(val.coil_length) || parseFloat(newProduct.coil_length) || 0,
+          }));
+
+        // 3. Update Product with full metadata
+        const productData = {
+          name: newProduct.name,
+          display_name: newProduct.name,
+          description: newProduct.description,
+          category_id: categoryId,
+          sub_category: selectedSubCategory,
+          size: newProduct.size,
+          construction: newProduct.construction,
+          material: newProduct.material,
+          gauge: newProduct.gauge,
+          voltage_rating: newProduct.voltage_rating,
+          uom: newProduct.uom,
+          base_price: priceMatrixEntries.length > 0 ? priceMatrixEntries[0].price : (parseFloat(newProduct.base_price) || 0),
+          coil_length: parseFloat(newProduct.coil_length) || 0,
+          price_matrix: priceMatrixEntries
+        };
+
+        console.log("Updating product:", selectedCableData.id, productData);
+
+        const res = await updateProduct(selectedCableData.id, productData);
+        if (res.data.success) {
+          alert("Product updated successfully in database!");
+          fetchData(); // Refresh list
+          handleReset(); // Clear selection and form
+        } else {
+          alert("Failed to update product: " + (res.data.message || "Unknown error"));
+        }
+      }
+    } catch (err) {
+      console.error("Error saving data:", err);
+      alert("Error: " + (err.response?.data?.message || err.message));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Reset form
   const handleReset = () => {
-    setMode("edit");
+    // Keep current mode but reset selection and form
     setSelectedCategory("");
     setSelectedCable("");
     setSelectedSubCategory("");
@@ -1304,6 +1499,21 @@ const ProductManagement = () => {
         ];
 
       default:
+        // For database products, we generate fields based on the price matrix contents
+        if (selectedCable) {
+          const cableList = getCableList();
+          const p = cableList.find(c => String(c.id) === String(selectedCable) || (c.name || c.description || c.size) === selectedCable);
+          if (p && Array.isArray(p.price_matrix)) {
+            return p.price_matrix.map(pm => {
+              const ct = dbCoreTypes.find(ct => String(ct.id) === String(pm.core_type_id));
+              return {
+                label: (ct?.display_name || ct?.name || `Core #${pm.core_type_id}`) + " Price (Rs.)",
+                field: String(pm.core_type_id),
+                isMatrix: true
+              };
+            });
+          }
+        }
         return [];
     }
   };
@@ -1460,63 +1670,134 @@ const ProductManagement = () => {
               </div>
             )}
 
-            {/* Cable Selection (Edit Mode) */}
-            {mode === "edit" && selectedCategory && (
-              <div
-                className={
-                  selectedCategory === "POWER CABLES" ||
-                  selectedCategory === "ALUMINIUM CABLES"
-                    ? "md:col-span-2"
-                    : ""
-                }
-              >
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Select Cable to Edit *
-                </label>
-                <select
-                  value={selectedCable}
-                  onChange={(e) => handleCableSelect(e.target.value)}
-                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select a cable</option>
-                  {getCableList().map((cable, index) => (
-                    <option
-                      key={index}
-                      value={
-                        selectedCategory ===
-                        "DC Solar Flexible Photovoltic UV-Resistant Cable"
-                          ? cable.name
-                          : selectedCategory === "General cables" ||
-                              selectedCategory ===
-                                "Flexible Cables BS 6500 IEC 60228"
-                            ? cable.description
-                            : selectedCategory === "POWER CABLES" ||
-                                selectedCategory === "ALUMINIUM CABLES"
-                              ? cable.size
-                              : cable.name
-                      }
-                    >
-                      {selectedCategory ===
-                      "DC Solar Flexible Photovoltic UV-Resistant Cable"
-                        ? cable.name
-                        : selectedCategory === "General cables"
-                          ? `${cable.description} - ${cable.formation}`
-                          : selectedCategory ===
-                              "Flexible Cables BS 6500 IEC 60228"
-                            ? cable.description
-                            : selectedCategory === "POWER CABLES" ||
-                                selectedCategory === "ALUMINIUM CABLES"
-                              ? cable.size
-                              : cable.name}
-                    </option>
-                  ))}
-                </select>
+            {/* Product Table (Edit Mode) */}
+            {mode === "edit" && (
+              <div className="md:col-span-2 space-y-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <h3 className="text-lg font-semibold text-white">Select Product to Edit</h3>
+                  <div className="relative w-full md:w-64">
+                    <input
+                      type="text"
+                      placeholder="Search products..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full p-2 pl-8 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-blue-500"
+                    />
+                    <svg className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto border border-gray-700 rounded-xl bg-gray-800/50">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-gray-700/50 border-b border-gray-700 text-gray-400 uppercase tracking-wider">
+                        <th className="px-3 py-3 font-semibold">Category</th>
+                        <th className="px-3 py-3 font-semibold">Product Name</th>
+                        <th className="px-3 py-3 font-semibold">Core Types / Detail</th>
+                        <th className="px-3 py-3 font-semibold">Material</th>
+                        <th className="px-3 py-3 font-semibold">Construction</th>
+                        <th className="px-3 py-3 font-semibold">Voltage</th>
+                        <th className="px-3 py-3 font-semibold text-right">Prices (Rs.)</th>
+                        <th className="px-3 py-3 font-semibold text-center">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700">
+                      {allProducts
+                        .filter(p => {
+                          const catName = p.category?.name || dbCategories.find(c => String(c.id) === String(p.category_id))?.name || "";
+                          const search = searchQuery.toLowerCase();
+                          return p.name?.toLowerCase().includes(search) || 
+                                 catName.toLowerCase().includes(search);
+                        })
+                        .map((p) => {
+                          const hasMatrix = p.price_matrix && Array.isArray(p.price_matrix) && p.price_matrix.length > 0;
+                          const catName = p.category?.name || dbCategories.find(c => String(c.id) === String(p.category_id))?.name || "N/A";
+                          return (
+                            <tr key={p.id} className={`hover:bg-gray-700/30 transition-colors ${String(selectedCable) === String(p.id) ? 'bg-blue-500/10' : ''}`}>
+                              <td className="px-3 py-3 text-gray-400">{catName}</td>
+                              <td className="px-3 py-3 font-medium text-gray-200">{p.name}</td>
+                              <td className="px-3 py-3 text-gray-400">
+                                {hasMatrix ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {p.price_matrix.map((pm, idx) => {
+                                      const coreType = dbCoreTypes.find(ct => String(ct.id) === String(pm.core_type_id));
+                                      return (
+                                        <span key={idx} className="bg-gray-700 px-1.5 py-0.5 rounded text-[10px]">
+                                          {coreType?.name || coreType?.display_name || pm.core_type_id}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  p.core_type || "N/A"
+                                )}
+                              </td>
+                              <td className="px-3 py-3 text-gray-400">{p.material || "N/A"}</td>
+                              <td className="px-3 py-3 text-gray-400">{p.construction || "N/A"}</td>
+                              <td className="px-3 py-3 text-gray-400">{p.voltage_rating || "N/A"}</td>
+                              <td className="px-3 py-3 text-right">
+                                {hasMatrix ? (
+                                  <div className="space-y-1">
+                                    {p.price_matrix.map((pm, idx) => {
+                                       const coreType = dbCoreTypes.find(ct => String(ct.id) === String(pm.core_type_id));
+                                       return (
+                                         <div key={idx} className="whitespace-nowrap">
+                                           <span className="text-[10px] text-gray-500 mr-1">{coreType?.name || pm.core_type_id}:</span>
+                                           <span className="text-gray-200">{(parseFloat(pm.price) || 0).toLocaleString()}</span>
+                                         </div>
+                                       );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-200 font-semibold">{(parseFloat(p.base_price) || 0).toLocaleString()}</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-3 text-center">
+                                <div className="flex justify-center gap-2">
+                                  <button
+                                    onClick={() => handleCableSelect(String(p.id))}
+                                    className={`p-1.5 rounded-lg transition-colors ${String(selectedCable) === String(p.id) ? 'bg-blue-600 text-white' : 'bg-gray-700 text-blue-400 hover:bg-gray-600'}`}
+                                    title="Edit Product"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteProduct(p.id)}
+                                    className="p-1.5 bg-gray-700 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                                    title="Delete Product"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      {allProducts.length === 0 && (
+                        <tr>
+                          <td colSpan="8" className="px-4 py-8 text-center text-gray-500 italic">No products found in database.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
-            {/* Add Mode - Full Product Form */}
-            {mode === "add" && (
+            {/* Add Mode or Edit Mode with Selection - Full Product Form */}
+            {(mode === "add" || (mode === "edit" && selectedCable)) && (
               <>
+                <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-700">
+                  <h3 className="text-xl font-bold text-white mb-6">
+                    {mode === "edit" ? "Edit Product Details" : "New Product Details"}
+                  </h3>
+                </div>
                 {/* Product Name */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -1929,7 +2210,11 @@ const ProductManagement = () => {
                         <input
                           type="number"
                           min="0"
-                          value={priceFields[fieldConfig.field] || ""}
+                          value={
+                            fieldConfig.isMatrix
+                              ? priceFields[fieldConfig.field]?.price || ""
+                              : priceFields[fieldConfig.field] || ""
+                          }
                           onChange={(e) =>
                             handlePriceChange(fieldConfig.field, e.target.value)
                           }
@@ -1951,7 +2236,7 @@ const ProductManagement = () => {
               onClick={handleReset}
               className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
             >
-              Reset
+              {mode === "edit" && selectedCable ? "Cancel Edit" : "Reset"}
             </button>
             <button
               type="button"
@@ -1964,9 +2249,9 @@ const ProductManagement = () => {
               } ${submitting ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               {submitting
-                ? "Saving..."
+                ? "Processing..."
                 : mode === "edit"
-                  ? "Update Prices"
+                  ? "Update Product"
                   : "Add New Product"}
             </button>
           </div>

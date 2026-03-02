@@ -299,8 +299,8 @@ const WinQuotations = () => {
                             <div className="flex justify-between items-start">
                               <div>
                                 <span className="font-bold text-green-400">{quote.id}</span>
-                                <h3 className="font-semibold text-white mt-1">{quote.client_name || quote.customer}</h3>
-                                <p className="text-gray-400 text-sm">{quote.client_email || quote.customerEmail}</p>
+                                 <h3 className="font-semibold text-white mt-1">{getVal(quote.client || quote.customer, 'name') || quote.client_name || 'N/A'}</h3>
+                                 <p className="text-gray-400 text-sm">{getVal(quote.client || quote.customer, 'email') || quote.client_email || 'N/A'}</p>
                               </div>
                               <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-500/20 text-green-300 border border-green-500/30 flex items-center gap-1">
                                 <FiDollarSign className="text-xs" />
@@ -324,7 +324,7 @@ const WinQuotations = () => {
                                 <p className="text-gray-400 text-xs">Salesperson</p>
                                 <div className="flex items-center gap-2">
                                   <FiUser className="text-purple-300 text-xs" />
-                                  <p className="text-purple-300 text-sm font-medium">{quote.user?.name || quote.salesperson}</p>
+                                   <p className="text-purple-300 text-sm font-medium">{getVal(quote.user || quote.salesperson, 'name')}</p>
                                 </div>
                               </div>
                               <div>

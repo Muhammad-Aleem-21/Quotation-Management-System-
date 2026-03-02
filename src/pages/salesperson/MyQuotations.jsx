@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FiX, FiSave, FiAlertCircle, FiSearch } from 'react-icons/fi';
-import { getQuotations, submitDraftQuotation, generateQuotationPdf } from '../../api/api';
+import { getQuotations, submitDraftQuotation, generateQuotationPdf, markQuotationAsSent } from '../../api/api';
 
 const MyQuotations = () => {
   const navigate = useNavigate(); 
@@ -128,6 +128,27 @@ const MyQuotations = () => {
     } catch (err) {
       console.error("Error submitting draft:", err);
       alert("Failed to submit quotation: " + (err.response?.data?.message || err.message));
+    } finally {
+      setSubmittingId(null);
+    }
+  };
+
+  const handleSendToClient = async (id) => {
+    if (!window.confirm("Are you sure you want to send this quotation to the client?")) return;
+    
+    try {
+      setSubmittingId(id);
+      const res = await markQuotationAsSent(id);
+      console.log("Mark sent response:", res);
+      if (res.status === 200 || res.data?.success) {
+        alert("Quotation sent to client successfully!");
+        fetchQuotations(); // Refresh list
+      } else {
+        throw new Error(res.data?.message || "Action failed");
+      }
+    } catch (err) {
+      console.error("Error sending to client:", err);
+      alert("Failed to send quotation: " + (err.response?.data?.message || err.message));
     } finally {
       setSubmittingId(null);
     }
@@ -472,6 +493,15 @@ const MyQuotations = () => {
                             {submittingId === quote.id ? "Submitting..." : "Submit"}
                           </button>
                         </div>
+                      )}
+                      {quote.status?.toLowerCase() === 'approved' && (
+                        <button
+                          className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 sm:px-3 sm:py-1 rounded-lg text-xs sm:text-sm font-medium transition-colors duration-200"
+                          onClick={() => handleSendToClient(quote.id)}
+                          disabled={submittingId === quote.id}
+                        >
+                          {submittingId === quote.id ? "Sending..." : "Send"}
+                        </button>
                       )}
                       {quote.status?.toLowerCase() === 'rejected' && (
                         <button 

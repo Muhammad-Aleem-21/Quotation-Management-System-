@@ -297,7 +297,7 @@ const Approved = () => {
 
                             <div className="flex justify-between items-center text-sm">
                               <p className="font-bold text-white text-sm">Rs. {parseFloat(quote.final_amount || quote.total_amount || 0).toLocaleString()}</p>
-                              <p className="text-blue-300">Approved By: {quote.approved_by_name || quote.approvedBy || 'Manager'}</p>
+                              <p className="text-blue-300">Approved By: {quote.approved_by_name || getVal(quote.approvedBy, 'name') || 'Manager'}</p>
                             </div>
                             
                             <div className="pt-2">
@@ -341,7 +341,7 @@ const Approved = () => {
                             <span className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-500/10 text-green-400 border border-green-500/20 w-fit">
                               Approved
                             </span>
-                            <div className="text-[10px] text-gray-400">By: {quote.approved_by_name || quote.approvedBy || 'Manager'}</div>
+                            <div className="text-[10px] text-gray-400">By: {quote.approved_by_name || getVal(quote.approvedBy, 'name') || 'Manager'}</div>
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -471,7 +471,7 @@ const Approved = () => {
                         <span className="text-base sm:text-lg font-bold text-white">Rs. {parseFloat(selectedQuotation.final_amount || selectedQuotation.total_amount || 0).toLocaleString()}</span>
                       </div>
                       <div className="mt-2 text-[10px] text-gray-500 italic text-right">
-                        Approved by: {selectedQuotation.approved_by_name || selectedQuotation.approvedBy || 'Manager'}
+                        Approved by: {selectedQuotation.approved_by_name || getVal(selectedQuotation.approvedBy, 'name') || 'Manager'}
                       </div>
                     </div>
                   </div>

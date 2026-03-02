@@ -147,8 +147,9 @@ const TotalQuotations = () => {
 
   // Get unique salespersons for filter
   const salespersons = useMemo(() => {
-    const unique = [...new Set(allQuotations.map(q => q.salesperson))];
-    return unique.map(name => ({
+    const names = allQuotations.map(q => getVal(q.user || q.salesperson, 'name'));
+    const unique = [...new Set(names.filter(n => n !== 'N/A'))];
+    return unique.sort().map(name => ({
       value: name,
       label: name
     }));
@@ -177,7 +178,7 @@ const TotalQuotations = () => {
     
     // Apply salesperson filter
     if (filters.salesperson !== 'all') {
-      result = result.filter(quote => quote.salesperson === filters.salesperson);
+      result = result.filter(quote => getVal(quote.user || quote.salesperson, 'name') === filters.salesperson);
     }
     
     // Apply sorting
@@ -193,7 +194,7 @@ const TotalQuotations = () => {
                        parseFloat(String(a.final_amount || a.total_amount || 0).replace('$', '').replace(',', ''));
           break;
         case 'salesperson':
-          comparison = a.salesperson.localeCompare(b.salesperson);
+          comparison = getVal(a.user || a.salesperson, 'name').localeCompare(getVal(b.user || b.salesperson, 'name'));
           break;
         case 'customer':
           comparison = a.customer.localeCompare(b.customer);

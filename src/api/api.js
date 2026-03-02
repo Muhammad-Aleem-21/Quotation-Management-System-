@@ -43,6 +43,8 @@ export const resubmitQuotation = (id, data) => API.post(`/quotations/${id}/resub
 export const submitDraftQuotation = (id, data) => API.post(`/quotations/${id}/submit`, data);
 export const getQuotations = () => API.get('/quotations');
 export const generateQuotationPdf = (id) => API.post(`/quotations/${id}/generate-pdf`, {}, { responseType: 'blob', headers: { 'Accept': 'application/pdf' } });
+export const markQuotationAsSent = (id) => API.post(`/quotations/${id}/mark-sent`);
+
 
 // Client Management
 export const getClients = () => API.get('/clients');
@@ -53,10 +55,14 @@ export const getCategories = () => API.get('/admin/categories');
 export const createCategory = (data) => API.post('/admin/categories', data);
 export const getProducts = () => API.get('/products');
 export const createProduct = (data) => API.post('/admin/products', data);
+export const updateProduct = (id, data) => API.put(`/admin/products/${id}`, data);
+export const deleteProduct = (id) => API.delete(`/admin/products/${id}`);
 export const getVariantTypes = () => API.get('/admin/variant-types');
 export const getVariantOptions = () => API.get('/admin/variant-options');
 export const getProductPriceMatrix = (productId) => API.get(`/admin/products/${productId}/price-matrix`);
 export const setProductPriceMatrix = (productId, data) => API.post(`/admin/products/${productId}/price-matrix`, data);
+export const bulkUpdateProductPrices = (data) => API.post('/admin/products/bulk-update', data);
+
 
 // Core Types
 export const getCoreTypes = () => API.get('/admin/core-types');

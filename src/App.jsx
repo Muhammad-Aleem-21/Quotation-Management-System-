@@ -34,7 +34,7 @@ import AcceptedQuotations from "./pages/salesperson/subPages/AcceptedQuotations"
 import RejectedQuotations from "./pages/salesperson/subPages/RejectedQuotations";
 import PendingQuotations from "./pages/salesperson/subPages/PendingQuotations";
 import WinQuotations from "./pages/salesperson/subPages/WinQuotations";
-import SalesTeamManagement from "./pages/salesperson/SalesTeamManagement";
+import ClientManagement from "./pages/salesperson/ClientManagement";
 
 // Super Admin Imports
 import SuperAdminNavbar from "./components/SuperAdminNavbar";
@@ -459,11 +459,11 @@ function App() {
           }
         />
         <Route
-          path="/sales-team-management"
+          path="/client-management"
           element={
             <ProtectedRoute requiredRole="salesperson">
               <SalesLayout>
-                <SalesTeamManagement />
+                <ClientManagement />
               </SalesLayout>
             </ProtectedRoute>
           }

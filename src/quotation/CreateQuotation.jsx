@@ -1594,20 +1594,24 @@ const CreateQuotation = ({ userRole = "salesperson" }) => {
           // Resolve coreTypeId - prioritize explicit ID, then try to find ID from name in allCoreTypes
           let coreId = item.core_type_id || item.core_type;
           let coreName = item.core_type_name || (typeof item.core_type === 'string' ? item.core_type : "");
+          let coreCode = item.core_type_code || (typeof item.core_type === 'string' ? item.core_type : null);
           
           if (typeof coreId === 'string' && isNaN(coreId)) {
             const foundCoreType = allCoreTypes.find(ct => 
               ct.name?.toLowerCase() === coreId.toLowerCase() || 
-              ct.display_name?.toLowerCase() === coreId.toLowerCase()
+              ct.display_name?.toLowerCase() === coreId.toLowerCase() ||
+              ct.code?.toLowerCase() === coreId.toLowerCase()
             );
             if (foundCoreType) {
               coreId = foundCoreType.id;
               coreName = foundCoreType.name || foundCoreType.display_name;
+              coreCode = foundCoreType.code;
             }
           } else if (coreId && allCoreTypes.length > 0) {
             const foundCoreType = allCoreTypes.find(ct => String(ct.id) === String(coreId));
             if (foundCoreType) {
               coreName = foundCoreType.name || foundCoreType.display_name;
+              coreCode = foundCoreType.code;
             }
           }
 
@@ -1631,6 +1635,7 @@ const CreateQuotation = ({ userRole = "salesperson" }) => {
             productName: item.product?.name || item.product_name || item.name || `Product #${item.product_id}`,
             categoryName: item.product?.category?.name || item.category_name || "N/A",
             coreTypeName: coreName || (typeof item.core_type === 'string' ? item.core_type : `Core #${item.core_type}`),
+            coreTypeCode: coreCode,
             color: item.color || "",
             quantity: qty,
             coilLength: item.coil_length || item.coilLength || 0,
@@ -1779,8 +1784,11 @@ const CreateQuotation = ({ userRole = "salesperson" }) => {
     allCoreTypes.find((c) => String(c.id) === String(id))?.display_name ||
     id;
 
-  const getCoreTypeCode = (id) =>
-    allCoreTypes.find((c) => String(c.id) === String(id))?.code || id;
+  const getCoreTypeCode = (id) => {
+    if (!id || id === "none") return null;
+    const ct = allCoreTypes.find((c) => String(c.id) === String(id));
+    return ct?.code || null;
+  };
 
   const normalizeCoreType = (str) => {
     if (!str) return "";
@@ -2049,7 +2057,7 @@ const CreateQuotation = ({ userRole = "salesperson" }) => {
         status: "pending",
         items: quotationItems.map((item) => ({
           product_id: parseInt(item.productId),
-          core_type: (item.coreTypeId === "none" || !item.coreTypeId) ? null : normalizeCoreType(item.coreTypeName),
+          core_type: (item.coreTypeId === "none" || !item.coreTypeId) ? null : (item.coreTypeCode || getCoreTypeCode(item.coreTypeId) || normalizeCoreType(item.coreTypeName)),
           core_type_id: (item.coreTypeId === "none" || !item.coreTypeId) ? null : (parseInt(item.coreTypeId) || null),
           color: item.color || null,
           quantity: parseInt(item.quantity),

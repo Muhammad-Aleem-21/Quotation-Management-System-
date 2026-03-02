@@ -280,8 +280,8 @@ const Rejected = () => {
                             <div className="flex justify-between items-start">
                               <div>
                                 <span className="font-bold text-red-400">{quote.id}</span>
-                                <h3 className="font-semibold text-white mt-1">{quote.client_name || quote.customer}</h3>
-                                <p className="text-gray-400 text-sm">{quote.client_email || quote.customerEmail}</p>
+                                <h3 className="font-semibold text-white mt-1">{getVal(quote.client || quote.customer, 'name') || quote.client_name || 'N/A'}</h3>
+                                <p className="text-gray-400 text-sm">{getVal(quote.client || quote.customer, 'email') || quote.client_email || 'N/A'}</p>
                               </div>
                               <span className="px-3 py-1 rounded-full text-xs font-medium bg-red-500/20 text-red-300 border border-red-500/30 flex items-center gap-1">
                                 <FiXCircle className="text-xs" />
@@ -305,12 +305,12 @@ const Rejected = () => {
                                 <p className="text-gray-400 text-xs">Salesperson</p>
                                 <div className="flex items-center gap-2">
                                   <FiUser className="text-purple-300 text-xs" />
-                                  <p className="text-purple-300 text-sm font-medium">{quote.user?.name || quote.salesperson}</p>
+                                  <p className="text-purple-300 text-sm font-medium">{getVal(quote.user || quote.salesperson, 'name')}</p>
                                 </div>
                               </div>
                               <div>
                                 <p className="text-gray-400 text-xs">Rejected By</p>
-                                <p className="text-orange-300 text-sm">{quote.rejected_by_name || 'Manager'}</p>
+                                <p className="text-blue-300 italic">{quote.rejected_by_name || getVal(quote.rejected_by, 'name') || 'Admin'}</p>
                               </div>
                             </div>
                             
@@ -358,7 +358,7 @@ const Rejected = () => {
                               Rejected
                             </span>
                             <div className="text-[10px] text-gray-400 truncate max-w-[120px]" title={quote.rejection_reason || quote.reason || 'N/A'}>
-                                Reason: {quote.rejection_reason || quote.reason || 'N/A'}
+                                Rejected By: {quote.rejected_by_name || getVal(quote.rejected_by, 'name') || 'Admin'}
                             </div>
                           </div>
                         </td>
@@ -487,6 +487,9 @@ const Rejected = () => {
                       <div className="flex justify-between items-center border-t border-gray-700/50 pt-2">
                         <span className="text-xs text-gray-400 font-medium italic">Final Total</span>
                         <span className="text-base sm:text-lg font-bold text-white">Rs. {parseFloat(selectedQuotation.final_amount || selectedQuotation.total_amount || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="mt-2 text-[10px] text-gray-500 italic text-right">
+                        Rejected by: {selectedQuotation.rejected_by_name || getVal(selectedQuotation.rejected_by, 'name') || 'Admin'}
                       </div>
                     </div>
                   </div>

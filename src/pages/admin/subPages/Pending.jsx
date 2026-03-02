@@ -18,7 +18,7 @@ const Pending = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quotations, setQuotations] = useState([]);
-  
+  const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userId = String(user.id || "");
   const userRole = (user.role || "").toLowerCase();

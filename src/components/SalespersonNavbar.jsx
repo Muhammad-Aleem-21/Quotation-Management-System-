@@ -145,7 +145,7 @@ export default function SalespersonNavbar({ open, setOpen }) {
       path: "/create-quotation",
     },
     { name: "My Quotation", icon: <FiClipboard />, path: "/my-quotation" },
-    { name: "Team Management", icon: <FiUsers />, path: "/sales-team-management" },
+    { name: "Client Management", icon: <FiUsers />, path: "/client-management" },
     { name: "Profile", icon: <FiUser />, path: "/profile" },
   ];
 
