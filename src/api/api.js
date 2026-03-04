@@ -72,4 +72,12 @@ export const createCoreType = (data) => API.post('/admin/core-types', data);
 export const getCatalogCategories = () => API.get('/catalog/categories');
 export const getCatalogCoreTypes = () => API.get('/catalog/core-types');
 
+// Notification APIs
+export const getNotifications = () => API.get('/notifications');
+export const getNotificationStats = () => API.get('/notifications/stats');
+export const markNotificationRead = (id) => API.post(`/notifications/${id}/mark-read`, {});
+export const markAllNotificationsRead = () => API.post('/notifications/mark-all-read', {});
+export const deleteNotification = (id) => API.delete(`/notifications/${id}`);
+export const clearAllNotifications = () => API.delete('/notifications/clear-all');
+
 export default API;

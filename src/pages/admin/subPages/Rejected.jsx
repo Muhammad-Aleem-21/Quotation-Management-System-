@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../components/AdminNavbar";
 import { FiSearch, FiX, FiFileText, FiUser, FiXCircle } from "react-icons/fi";
 import API, { getQuotations, getTeamStats, generateQuotationPdf } from "../../../api/api";
@@ -7,20 +7,59 @@ import API, { getQuotations, getTeamStats, generateQuotationPdf } from "../../..
 const Rejected = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState({
+    salesperson: 'all',
+    status: 'all',
+    sortBy: 'date',
+    sortOrder: 'desc'
+  });
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quotations, setQuotations] = useState([]);
+  const [downloadingPdf, setDownloadingPdf] = useState(null);
   
   const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const userId = String(user.id || "");
   const userRole = (user.role || "").toLowerCase();
 
   // Modal States
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState(null);
-  const [downloadingPdf, setDownloadingPdf] = useState(null);
+
+  // Highlight Support
+  const [highlightId, setHighlightId] = useState(null);
+  const highlightRef = useRef(null);
+
+  useEffect(() => {
+    const hId = searchParams.get('highlight');
+    if (hId) {
+      setHighlightId(String(hId));
+      searchParams.delete('highlight');
+      setSearchParams(searchParams, { replace: true });
+      const timer = setTimeout(() => setHighlightId(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (highlightId && highlightRef.current) {
+      setTimeout(() => {
+        highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 500);
+    }
+  }, [highlightId, quotations]);
+
+  useEffect(() => {
+    if (highlightId && quotations.length > 0 && !showDetailsModal) {
+      const targetQuote = quotations.find(q => String(q.id) === highlightId);
+      if (targetQuote) {
+        setSelectedQuotation(targetQuote);
+        setShowDetailsModal(true);
+      }
+    }
+  }, [highlightId, quotations, showDetailsModal]);
 
   // Safe access helper
   const getVal = (val, field) => {
@@ -75,10 +114,19 @@ const Rejected = () => {
         }
 
         // Filter for rejected status
-        const rejectedQuotes = scopedQuotes.filter(quote => {
+        let rejectedQuotes = scopedQuotes.filter(quote => {
           const status = (quote.status || "").toLowerCase();
           return status === 'rejected' || status === 'declined';
         });
+
+        // Sort highlightId to the top
+        if (highlightId) {
+          rejectedQuotes.sort((a, b) => {
+            if (String(a.id) === highlightId) return -1;
+            if (String(b.id) === highlightId) return 1;
+            return 0;
+          });
+        }
 
         setQuotations(rejectedQuotes);
       }
@@ -94,19 +142,21 @@ const Rejected = () => {
 
   // Filter quotations based on search
   const filteredQuotations = useMemo(() => {
-    if (!searchQuery) return rejectedQuotations;
-
-    const query = searchQuery.toLowerCase();
-    return rejectedQuotations.filter(
-      (quote) =>
-      (quote.client_name || quote.customer || "").toLowerCase().includes(query) ||
-      String(quote.id).toLowerCase().includes(query) ||
-      (quote.service_name || quote.service || "").toLowerCase().includes(query) ||
-      (quote.user?.name || quote.salesperson || "").toLowerCase().includes(query) ||
-      (quote.client_email || quote.customerEmail || "").toLowerCase().includes(query) ||
-      (quote.reason || "").toLowerCase().includes(query) ||
-      (quote.rejectedBy || "").toLowerCase().includes(query)
-    );
+    let list = [...rejectedQuotations];
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      list = list.filter(
+        (quote) =>
+        (quote.client_name || quote.customer || "").toLowerCase().includes(query) ||
+        String(quote.id).toLowerCase().includes(query) ||
+        (quote.service_name || quote.service || "").toLowerCase().includes(query) ||
+        (quote.user?.name || quote.salesperson || "").toLowerCase().includes(query) ||
+        (quote.client_email || quote.customerEmail || "").toLowerCase().includes(query) ||
+        (quote.reason || "").toLowerCase().includes(query) ||
+        (quote.rejectedBy || "").toLowerCase().includes(query)
+      );
+    }
+    return list;
   }, [rejectedQuotations, searchQuery]);
 
   // Clear search
@@ -274,7 +324,7 @@ const Rejected = () => {
                   {filteredQuotations.map((quote) => (
                     <React.Fragment key={quote.id}>
                       {/* Mobile View - Card Layout */}
-                      <tr className="sm:hidden border-b border-gray-700">
+                      <tr className={`sm:hidden border-b border-gray-700 ${String(quote.id) === highlightId ? 'quotation-highlight' : ''}`} ref={String(quote.id) === highlightId ? highlightRef : null}>
                         <td colSpan="2" className="p-4">
                           <div className="space-y-3">
                             <div className="flex justify-between items-start">
@@ -321,7 +371,10 @@ const Rejected = () => {
 
                             <div className="pt-2">
                               <button 
-                                onClick={() => navigate(`/create-quotation`, { state: { editQuotation: quote } })}
+                                onClick={() => {
+                                  setSelectedQuotation(quote);
+                                  setShowDetailsModal(true);
+                                }}
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded text-sm font-medium transition-colors"
                               >
                                 View Details
@@ -331,7 +384,7 @@ const Rejected = () => {
                         </td>
                       </tr>
                       
-                      <tr className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
+                      <tr className={`hidden sm:table-row hover:bg-gray-750 transition-colors duration-200 ${String(quote.id) === highlightId ? 'quotation-highlight' : ''}`} ref={String(quote.id) === highlightId ? highlightRef : null}>
                         <td className="px-4 py-3">
                           <span className="font-bold text-red-400 text-sm">#{quote.id}</span>
                         </td>

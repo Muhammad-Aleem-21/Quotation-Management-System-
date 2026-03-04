@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import SuperAdminNavbar from "../../../components/SuperAdminNavbar";
 import {
   FiSearch,
@@ -30,6 +30,30 @@ const PendingList = () => {
   const [selectedQuoteId, setSelectedQuoteId] = useState(null);
   const [rejecting, setRejecting] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(null);
+
+  // Highlight support from notification click
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [highlightId, setHighlightId] = useState(null);
+  const highlightRef = useRef(null);
+
+  useEffect(() => {
+    const hId = searchParams.get('highlight');
+    if (hId) {
+      setHighlightId(String(hId));
+      searchParams.delete('highlight');
+      setSearchParams(searchParams, { replace: true });
+      const timer = setTimeout(() => setHighlightId(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (highlightId && highlightRef.current) {
+      setTimeout(() => {
+        highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 500);
+    }
+  }, [highlightId, quotations]);
 
   // Safe access helper
   const getVal = (val, field) => {
@@ -113,10 +137,19 @@ const PendingList = () => {
         const allQuotes = quotesRes.data.data || quotesRes.data.quotations || quotesRes.data || [];
         
         // Filter for pending status
-        const pendingQuotes = allQuotes.filter(quote => {
+        let pendingQuotes = allQuotes.filter(quote => {
           const status = (quote.status || "").toLowerCase();
           return status === 'pending' || status === 'submitted' || status === 'revised';
         });
+
+        // Sort highlightId to the top
+        if (highlightId) {
+          pendingQuotes.sort((a, b) => {
+            if (String(a.id) === highlightId) return -1;
+            if (String(b.id) === highlightId) return 1;
+            return 0;
+          });
+        }
 
         setQuotations(pendingQuotes);
       }
@@ -127,6 +160,16 @@ const PendingList = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (highlightId && quotations.length > 0 && !showDetailsModal && !showRejectModal) {
+      const targetQuote = quotations.find(q => String(q.id) === highlightId);
+      if (targetQuote) {
+        setSelectedQuotation(targetQuote);
+        setShowDetailsModal(true);
+      }
+    }
+  }, [highlightId, quotations, showDetailsModal, showRejectModal]);
 
   const pendingQuotations = quotations;
 
@@ -339,7 +382,10 @@ const PendingList = () => {
                   {filteredQuotations.map((quote) => (
                     <React.Fragment key={quote.id}>
                       {/* Mobile View - Card Layout */}
-                      <tr className="sm:hidden border-b border-gray-700">
+                      <tr
+                        className={`sm:hidden border-b border-gray-700 ${String(quote.id) === highlightId ? 'quotation-highlight' : ''}`}
+                        ref={String(quote.id) === highlightId ? highlightRef : null}
+                      >
                         <td colSpan="2" className="p-4">
                           <div className="space-y-3">
                             <div className="flex justify-between items-start">
@@ -382,7 +428,10 @@ const PendingList = () => {
                       </tr>
                       
                       {/* Desktop/Tablet View - Table Layout */}
-                      <tr className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
+                      <tr
+                        className={`hidden sm:table-row hover:bg-gray-750 transition-colors duration-200 ${String(quote.id) === highlightId ? 'quotation-highlight' : ''}`}
+                        ref={String(quote.id) === highlightId ? highlightRef : null}
+                      >
                         <td className="px-4 py-3">
                           <span className="font-bold text-blue-400 text-sm">#{quote.id}</span>
                         </td>

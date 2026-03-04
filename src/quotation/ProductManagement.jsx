@@ -1419,6 +1419,39 @@ const ProductManagement = () => {
     }
   };
 
+  const handleCreateCoreType = async () => {
+    if (!newProduct.core_type || !newProduct.core_type.trim()) {
+      alert("Please enter a core type name");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const res = await createCoreType({
+        name: newProduct.core_type.trim(),
+        display_name: newProduct.core_type.trim(),
+        code: generateCode(newProduct.core_type.trim())
+      });
+
+      if (res.data.success || res.data.data?.success) {
+        const newCore = res.data.data || res.data.core_type;
+        // Refresh the list of core types
+        await fetchData(); 
+        // Automatically select the new core type
+        setSelectedCoreTypeIds(prev => [...prev, String(newCore.id)]);
+        // Clear the input
+        handleProductFieldChange("core_type", "");
+      } else {
+        alert("Failed to create core type: " + (res.data.message || res.data.data?.message || "Unknown error"));
+      }
+    } catch (err) {
+      console.error("Error creating core type:", err);
+      alert("Error: " + (err.response?.data?.message || err.message));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // Reset form
   const handleReset = () => {
     // Keep current mode but reset selection and form
@@ -2076,21 +2109,31 @@ const ProductManagement = () => {
                               }}
                               className="text-xs text-blue-400 hover:text-blue-300"
                             >
-                              Back to List
+                              Close
                             </button>
                           </div>
-                          <input
-                            type="text"
-                            value={newProduct.core_type}
-                            onChange={(e) =>
-                              handleProductFieldChange("core_type", e.target.value)
-                            }
-                            className="w-full p-2 bg-gray-800 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-blue-500"
-                            placeholder="e.g., 5 Core or XLPE Armoured"
-                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={newProduct.core_type}
+                              onChange={(e) =>
+                                handleProductFieldChange("core_type", e.target.value)
+                              }
+                              className="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-blue-500"
+                              placeholder="e.g., 5 Core or XLPE Armoured"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleCreateCoreType}
+                              disabled={submitting || !newProduct.core_type}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors disabled:opacity-50"
+                            >
+                              Add
+                            </button>
+                          </div>
                           {newProduct.core_type && (
                             <p className="text-xs text-gray-400 mt-1">
-                              Preview Slug: <span className="text-blue-400 font-mono">{generateCode(newProduct.core_type)}</span>
+                              Preview Code: <span className="text-blue-400 font-mono">{generateCode(newProduct.core_type)}</span>
                             </p>
                           )}
                         </div>

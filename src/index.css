@@ -31,3 +31,260 @@ body {
 .dark .dark\:text-white {
   color: #ffffff !important;
 } */
+
+/* ============================================
+   NOTIFICATION BELL SYSTEM
+   ============================================ */
+
+/* Bell Container - Fixed top-right */
+.notification-bell-container {
+  position: fixed;
+  top: 16px;
+  right: 20px;
+  z-index: 55;
+}
+
+@media (max-width: 1023px) {
+  .notification-bell-container {
+    display: none;
+    /* Hide global bell on mobile, we'll use inline version in navbar */
+  }
+}
+
+/* Bell Button */
+.notification-bell-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(31, 41, 55, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(75, 85, 99, 0.4);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.notification-bell-btn:hover {
+  background: rgba(55, 65, 81, 0.9);
+  border-color: rgba(99, 102, 241, 0.5);
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.2);
+}
+
+.notification-bell-btn:active {
+  transform: scale(0.97);
+}
+
+/* Unread Badge */
+.notification-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.5);
+  animation: badge-pulse 2s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.5);
+  }
+
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 2px 12px rgba(239, 68, 68, 0.7);
+  }
+}
+
+/* Dropdown Panel */
+.notification-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 380px;
+  max-height: 520px;
+  background: rgba(17, 24, 39, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(75, 85, 99, 0.5);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+  animation: dropdown-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (max-width: 480px) {
+  .notification-dropdown {
+    width: calc(100vw - 24px);
+    right: -8px;
+  }
+}
+
+@keyframes dropdown-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Inline Bell for Mobile Navbar */
+.notification-bell-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notification-bell-inline .notification-bell-btn {
+  background: transparent;
+  backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  width: auto;
+  height: auto;
+  padding: 4px;
+}
+
+.notification-bell-inline .notification-bell-btn svg {
+  color: #1f2937;
+  /* text-gray-800 */
+  font-size: 1.5rem;
+  /* text-2xl to match hamburger */
+}
+
+.notification-bell-inline .notification-bell-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  transform: none;
+  box-shadow: none;
+}
+
+.notification-bell-inline .notification-badge {
+  top: 0px;
+  right: 0px;
+  border: 2px solid white;
+}
+
+@media (max-width: 1023px) {
+  .notification-bell-inline .notification-dropdown {
+    position: fixed;
+    top: 64px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-height: 80vh;
+  }
+}
+
+/* Notification List */
+.notification-list {
+  max-height: 400px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(75, 85, 99, 0.5) transparent;
+}
+
+.notification-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.notification-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notification-list::-webkit-scrollbar-thumb {
+  background: rgba(75, 85, 99, 0.5);
+  border-radius: 4px;
+}
+
+/* Individual Notification Item */
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+  animation: notif-slide-in 0.3s ease both;
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item:hover {
+  background: rgba(55, 65, 81, 0.3);
+}
+
+.notification-item:hover button {
+  opacity: 1 !important;
+}
+
+.notification-unread {
+  background: rgba(59, 130, 246, 0.06);
+  border-left: 3px solid rgba(59, 130, 246, 0.5);
+}
+
+.notification-unread:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+@keyframes notif-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ============================================
+   QUOTATION HIGHLIGHT (when navigated from notification)
+   ============================================ */
+
+.quotation-highlight {
+  animation: highlight-glow 2s ease-in-out;
+  border-color: rgba(99, 102, 241, 0.7) !important;
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.3), 0 0 40px rgba(99, 102, 241, 0.1);
+}
+
+@keyframes highlight-glow {
+  0% {
+    box-shadow: 0 0 5px rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.3);
+  }
+
+  30% {
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.5), 0 0 60px rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.8);
+  }
+
+  100% {
+    box-shadow: 0 0 5px rgba(99, 102, 241, 0.1);
+    border-color: rgba(99, 102, 241, 0.3);
+  }
+}

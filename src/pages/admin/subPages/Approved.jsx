@@ -1,26 +1,56 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../components/AdminNavbar";
 import { FiSearch, FiX, FiFileText, FiUser, FiCheck } from "react-icons/fi";
-import API, { getQuotations, getTeamStats, generateQuotationPdf } from "../../../api/api";
+import API, { getQuotations, generateQuotationPdf } from "../../../api/api";
 
 const Approved = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quotations, setQuotations] = useState([]);
+  const [downloadingPdf, setDownloadingPdf] = useState(null);
   
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  const userId = String(user.id || "");
-  const userRole = (user.role || "").toLowerCase();
-
   // Modal States
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState(null);
-  const [downloadingPdf, setDownloadingPdf] = useState(null);
+
+  // Highlight Support
+  const [highlightId, setHighlightId] = useState(null);
+  const highlightRef = useRef(null);
+
+  useEffect(() => {
+    const hId = searchParams.get('highlight');
+    if (hId) {
+      setHighlightId(String(hId));
+      searchParams.delete('highlight');
+      setSearchParams(searchParams, { replace: true });
+      const timer = setTimeout(() => setHighlightId(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (highlightId && highlightRef.current) {
+      setTimeout(() => {
+        highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 500);
+    }
+  }, [highlightId, quotations]);
+
+  useEffect(() => {
+    if (highlightId && quotations.length > 0 && !showDetailsModal) {
+      const targetQuote = quotations.find(q => String(q.id) === highlightId);
+      if (targetQuote) {
+        setSelectedQuotation(targetQuote);
+        setShowDetailsModal(true);
+      }
+    }
+  }, [highlightId, quotations]);
 
   // Safe access helper
   const getVal = (val, field) => {
@@ -275,7 +305,7 @@ const Approved = () => {
                   {filteredQuotations.map((quote) => (
                     <React.Fragment key={quote.id}>
                       {/* Mobile View - Card Layout */}
-                      <tr className="sm:hidden border-b border-gray-700">
+                      <tr className={`sm:hidden border-b border-gray-700 ${String(quote.id) === highlightId ? 'quotation-highlight' : ''}`} ref={String(quote.id) === highlightId ? highlightRef : null}>
                         <td colSpan="2" className="p-4">
                           <div className="space-y-3">
                             <div className="flex justify-between items-start">
@@ -291,8 +321,8 @@ const Approved = () => {
                             </div>
                             
                             <div className="flex items-center gap-2">
-                              <FiUser className="text-purple-300 text-xs" />
-                              <p className="text-purple-300 text-sm font-medium">{getVal(quote.user || quote.salesperson, 'name')}</p>
+                              <FiUser className="text-blue-300 text-xs" />
+                              <p className="text-blue-300 text-sm font-medium">{getVal(quote.user || quote.salesperson, 'name')}</p>
                             </div>
 
                             <div className="flex justify-between items-center text-sm">
@@ -315,15 +345,15 @@ const Approved = () => {
                         </td>
                       </tr>
                       
-                      <tr className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
+                      <tr className={`hidden sm:table-row hover:bg-gray-750 transition-colors duration-200 ${String(quote.id) === highlightId ? 'quotation-highlight' : ''}`} ref={String(quote.id) === highlightId ? highlightRef : null}>
                         <td className="px-4 py-3">
                           <span className="font-bold text-green-400 text-sm">#{quote.id}</span>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <FiUser className="text-purple-300" />
+                            <FiUser className="text-blue-300" />
                             <div>
-                                <div className="text-purple-300 text-sm font-medium">{getVal(quote.user || quote.salesperson, 'name')}</div>
+                                <div className="text-blue-300 text-sm font-medium">{getVal(quote.user || quote.salesperson, 'name')}</div>
                                 <div className="text-xs text-gray-400 font-mono">ID: #{quote.user_id || quote.salesperson_id || (typeof quote.user === 'object' ? quote.user.id : '')}</div>
                             </div>
                           </div>

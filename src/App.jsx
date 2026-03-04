@@ -70,6 +70,7 @@ import TeamRevenue from "./pages/manager/subPages/TeamRevenue";
 import Pending from "./pages/manager/subPages/Pending";
 import RejectedQuot from "./pages/manager/subPages/Rejected";
 import "./App.css";
+import NotificationBell from "./components/NotificationBell";
 
 
 
@@ -230,7 +231,8 @@ const AdminLayout = ({ children }) => {
     <div className="flex">
       <AdminNavbar open={sidebarOpen} setOpen={setSidebarOpen} />
 
-      <main className="flex-1 min-h-screen bg-gray-900 overflow-auto">
+      <main className="flex-1 min-h-screen bg-gray-900 overflow-auto relative">
+        <NotificationBell />
         <div className="lg:mt-0 mt-14">{children}</div>
       </main>
     </div>
@@ -244,7 +246,8 @@ const SalesLayout = ({ children }) => {
     <div className="flex">
       <SalesNavbar open={sidebarOpen} setOpen={setSidebarOpen} />
 
-      <main className="flex-1 min-h-screen bg-gray-900 overflow-auto">
+      <main className="flex-1 min-h-screen bg-gray-900 overflow-auto relative">
+        <NotificationBell />
         <div className="lg:mt-0 mt-14">{children}</div>
       </main>
     </div>
@@ -259,7 +262,8 @@ const SuperAdminLayout = ({ children }) => {
     <div className="flex">
       <SuperAdminNavbar open={sidebarOpen} setOpen={setSidebarOpen} />
 
-      <main className="flex-1 min-h-screen bg-gray-900 overflow-auto">
+      <main className="flex-1 min-h-screen bg-gray-900 overflow-auto relative">
+        <NotificationBell />
         <div className="lg:mt-0 mt-14">{children}</div>
       </main>
     </div>
@@ -274,7 +278,8 @@ const ManagerLayout = ({ children }) => {
     <div className="flex">
       <ManagerNavbar open={sidebarOpen} setOpen={setSidebarOpen} />
 
-      <main className="flex-1 min-h-screen bg-gray-900 overflow-auto">
+      <main className="flex-1 min-h-screen bg-gray-900 overflow-auto relative">
+        <NotificationBell />
         <div className="lg:mt-0 mt-14">{children}</div>
       </main>
     </div>

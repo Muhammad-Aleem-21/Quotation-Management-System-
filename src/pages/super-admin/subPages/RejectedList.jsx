@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import SuperAdminNavbar from "../../../components/SuperAdminNavbar";
 import {
   FiSearch,
@@ -19,6 +19,7 @@ const RejectedList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quotations, setQuotations] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const navigate = useNavigate();
@@ -27,6 +28,30 @@ const RejectedList = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedQuotation, setSelectedQuotation] = useState(null);
   const [downloadingPdf, setDownloadingPdf] = useState(null);
+
+  // Highlight support from notification click
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [highlightId, setHighlightId] = useState(null);
+  const highlightRef = useRef(null);
+
+  useEffect(() => {
+    const hId = searchParams.get('highlight');
+    if (hId) {
+      setHighlightId(String(hId));
+      searchParams.delete('highlight');
+      setSearchParams(searchParams, { replace: true });
+      const timer = setTimeout(() => setHighlightId(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (highlightId && highlightRef.current) {
+      setTimeout(() => {
+        highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 500);
+    }
+  }, [highlightId, quotations]);
 
   // Safe access helper
   const getVal = (val, field) => {
@@ -62,12 +87,22 @@ const RejectedList = () => {
 
       if (quotesRes.data) {
         const allQuotes = quotesRes.data.data || quotesRes.data.quotations || quotesRes.data || [];
+        setTotalCount(allQuotes.length);
         
         // Filter for rejected status
-        const rejectedQuotes = allQuotes.filter(quote => {
+        let rejectedQuotes = allQuotes.filter(quote => {
           const status = (quote.status || "").toLowerCase();
           return status === 'rejected';
         });
+
+        // Sort highlightId to the top
+        if (highlightId) {
+          rejectedQuotes.sort((a, b) => {
+            if (String(a.id) === highlightId) return -1;
+            if (String(b.id) === highlightId) return 1;
+            return 0;
+          });
+        }
 
         setQuotations(rejectedQuotes);
       }
@@ -78,6 +113,16 @@ const RejectedList = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (highlightId && quotations.length > 0 && !showDetailsModal) {
+      const targetQuote = quotations.find(q => String(q.id) === highlightId);
+      if (targetQuote) {
+        setSelectedQuotation(targetQuote);
+        setShowDetailsModal(true);
+      }
+    }
+  }, [highlightId, quotations, showDetailsModal]);
 
   const rejectedQuotations = quotations;
 
@@ -189,9 +234,13 @@ const RejectedList = () => {
               <p className="text-purple-400 text-xs sm:text-sm mt-1">Rejected amount</p>
             </div>
             <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
-              <p className="text-gray-400 text-sm sm:text-base">Avg. Rejection</p>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white mt-1 sm:mt-2">N/A</h2>
-              <p className="text-blue-400 text-xs sm:text-sm mt-1">Trend analysis</p>
+              <p className="text-gray-400 text-sm sm:text-base">Rejection Rate</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mt-1 sm:mt-2">
+                {quotations.length > 0 && totalCount > 0 
+                  ? `${((quotations.length / totalCount) * 100).toFixed(1)}%` 
+                  : "0.0%"}
+              </h2>
+              <p className="text-blue-400 text-xs sm:text-sm mt-1">Of total submissions</p>
             </div>
           </div>
 
@@ -260,7 +309,7 @@ const RejectedList = () => {
                   {filteredQuotations.map((quote) => (
                     <React.Fragment key={quote.id}>
                       {/* Mobile View - Card Layout */}
-                      <tr className="sm:hidden border-b border-gray-700">
+                      <tr className={`sm:hidden border-b border-gray-700 ${String(quote.id) === highlightId ? 'quotation-highlight' : ''}`} ref={String(quote.id) === highlightId ? highlightRef : null}>
                         <td colSpan="2" className="p-4">
                           <div className="space-y-3">
                             <div className="flex justify-between items-start">
@@ -302,7 +351,7 @@ const RejectedList = () => {
                       </tr>
                       
                       {/* Desktop/Tablet View - Table Layout */}
-                      <tr className="hidden sm:table-row hover:bg-gray-750 transition-colors duration-200">
+                      <tr className={`hidden sm:table-row hover:bg-gray-750 transition-colors duration-200 ${String(quote.id) === highlightId ? 'quotation-highlight' : ''}`} ref={String(quote.id) === highlightId ? highlightRef : null}>
                         <td className="px-4 py-3">
                           <span className="font-bold text-blue-400 text-sm">#{quote.id}</span>
                         </td>

@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { FiX, FiSave, FiAlertCircle, FiSearch } from 'react-icons/fi';
 import { getQuotations, submitDraftQuotation, generateQuotationPdf, markQuotationAsSent } from '../../api/api';
 
@@ -13,8 +13,32 @@ const MyQuotations = () => {
   const [submittingId, setSubmittingId] = useState(null);
   const [filterStatus, setFilterStatus] = useState(location.state?.filterStatus || 'all'); // 'all', 'approved', 'win', 'pending', 'rejected'
   const [searchQuery, setSearchQuery] = useState('');
-//   const [selectedQuotation, setSelectedQuotation] = useState(null);
-//   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Highlight support from notification click
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [highlightId, setHighlightId] = useState(null);
+  const highlightRowRef = useRef(null);
+
+  useEffect(() => {
+    const hId = searchParams.get('highlight');
+    if (hId) {
+      setHighlightId(String(hId));
+      searchParams.delete('highlight');
+      setSearchParams(searchParams, { replace: true });
+      const timer = setTimeout(() => setHighlightId(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (highlightId && highlightRowRef.current) {
+      setTimeout(() => {
+        highlightRowRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 500);
+    }
+  }, [highlightId, quotations]);
+  const [selectedQuotation, setSelectedQuotation] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const fetchQuotations = async () => {
     try {
@@ -45,15 +69,25 @@ const MyQuotations = () => {
       const user = userStr ? JSON.parse(userStr) : null;
       const currentUserId = user ? String(user.id || user.ID || "") : "";
 
+      let myQuotes = rawData;
       if (currentUserId && rawData.length > 0) {
-        const filtered = rawData.filter(q => {
+        myQuotes = rawData.filter(q => {
           const uid = String(q.user_id || q.salesperson_id || q.created_by || q.user?.id || "");
           return uid === currentUserId;
         });
-        setQuotations(filtered.length === 0 ? rawData : filtered);
-      } else {
-        setQuotations(rawData);
+        if (myQuotes.length === 0) myQuotes = rawData;
       }
+
+      // Sort highlightId to the top
+      if (highlightId) {
+        myQuotes.sort((a, b) => {
+          if (String(a.id) === highlightId) return -1;
+          if (String(b.id) === highlightId) return 1;
+          return 0;
+        });
+      }
+
+      setQuotations(myQuotes);
     } catch (err) {
       console.error("Error fetching quotations:", err);
       setError("Could not load quotations.");
@@ -61,6 +95,16 @@ const MyQuotations = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (highlightId && quotations.length > 0 && !showDetailsModal) {
+      const targetQuote = quotations.find(q => String(q.id) === highlightId);
+      if (targetQuote) {
+        setSelectedQuotation(targetQuote);
+        setShowDetailsModal(true);
+      }
+    }
+  }, [highlightId, quotations, showDetailsModal]);
 
   useEffect(() => {
     fetchQuotations();
@@ -434,7 +478,8 @@ const MyQuotations = () => {
               {filteredQuotations.map((quote) => (
                 <tr 
                   key={quote.id} 
-                  className="hover:bg-gray-750 transition-colors duration-200"
+                  className={`hover:bg-gray-750 transition-colors duration-200 ${String(quote.id) === highlightId ? 'quotation-highlight' : ''}`}
+                  ref={String(quote.id) === highlightId ? highlightRowRef : null}
                 >
                   <td className="px-3 py-2 sm:px-4 sm:py-3">
                     <span className="font-bold text-blue-400 text-sm sm:text-base">{quote.id}</span>
@@ -472,7 +517,10 @@ const MyQuotations = () => {
                     <div className="flex flex-wrap gap-1 sm:gap-2">
                       <button
                         className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 sm:px-3 sm:py-1 rounded-lg text-xs sm:text-sm font-medium transition-colors duration-200"
-                        onClick={() => handleViewPdf(quote.id)}
+                        onClick={() => {
+                          setSelectedQuotation(quote);
+                          setShowDetailsModal(true);
+                        }}
                       >
                         View
                       </button>
@@ -503,6 +551,13 @@ const MyQuotations = () => {
                           {submittingId === quote.id ? "Sending..." : "Send"}
                         </button>
                       )}
+                      <button
+                        className="bg-purple-600/20 hover:bg-purple-600/40 text-purple-400 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1"
+                        onClick={() => handleViewPdf(quote.id)}
+                        title="View PDF"
+                      >
+                        PDF
+                      </button>
                       {quote.status?.toLowerCase() === 'rejected' && (
                         <button 
                           className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 sm:px-3 sm:py-1 rounded-lg text-xs sm:text-sm font-medium transition-colors duration-200"
@@ -553,7 +608,101 @@ const MyQuotations = () => {
         </div>
       )}
       
-      {/* Edit Quotation Modal removed - navigating to /create-quotation instead */}
+      {/* Quotation Details Modal */}
+      {showDetailsModal && selectedQuotation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-gray-800 border border-gray-700 rounded-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+            {/* Modal Header */}
+            <div className="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center bg-gray-800/50">
+              <div className="pr-4">
+                <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2 flex-wrap">
+                  Quotation Details <span className="text-blue-400 text-xs sm:text-sm font-mono bg-blue-400/10 px-2 py-0.5 rounded-md">#{selectedQuotation.id}</span>
+                </h3>
+                <p className="text-[10px] sm:text-xs text-gray-400 mt-1">Submitted on {selectedQuotation.quotation_date || selectedQuotation.created_at?.split('T')[0]}</p>
+              </div>
+              <button 
+                onClick={() => setShowDetailsModal(false)}
+                className="p-2 hover:bg-gray-700 rounded-full transition-colors text-gray-400 hover:text-white shrink-0"
+              >
+                <FiX size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                {/* Client Info */}
+                <div className="space-y-3 sm:space-y-4">
+                  <h4 className="text-[10px] sm:text-xs uppercase font-bold text-gray-500 tracking-wider">Client Information</h4>
+                  <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700/50">
+                    <p className="text-sm font-semibold text-white">{selectedQuotation.client_name || selectedQuotation.client?.name || selectedQuotation.customer || 'N/A'}</p>
+                    <p className="text-xs text-gray-400 mt-1 break-all">{selectedQuotation.email || selectedQuotation.client?.email || 'N/A'}</p>
+                  </div>
+                </div>
+
+                {/* Status Summary */}
+                <div className="space-y-3 sm:space-y-4">
+                  <h4 className="text-[10px] sm:text-xs uppercase font-bold text-gray-500 tracking-wider">Status Summary</h4>
+                  <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700/50">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs text-gray-400 font-medium italic">Status</span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${getStatusColor(selectedQuotation.status)}`}>
+                        {selectedQuotation.status || 'Pending'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center border-t border-gray-700/50 pt-2">
+                      <span className="text-xs text-gray-400 font-medium italic">Amount</span>
+                      <span className="text-base sm:text-lg font-bold text-white">Rs. {parseFloat(selectedQuotation.final_amount || selectedQuotation.total_amount || 0).toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items List */}
+              {selectedQuotation.items && Array.isArray(selectedQuotation.items) && selectedQuotation.items.length > 0 && (
+                <div className="mt-8">
+                  <h4 className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-4">Line Items</h4>
+                  <div className="bg-gray-900/50 rounded-xl border border-gray-700/50 divide-y divide-gray-800">
+                    {selectedQuotation.items.map((item, idx) => (
+                      <div key={idx} className="p-4 flex justify-between items-center">
+                        <div>
+                          <p className="text-sm font-bold text-white leading-tight">{item.product_name || 'Product'}</p>
+                          <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                        </div>
+                        <p className="text-sm font-bold text-white">Rs. {parseFloat(item.total_amount || 0).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 sm:p-6 border-t border-gray-700 bg-gray-800/50 flex flex-wrap gap-2 text-xs">
+              <button 
+                onClick={() => handleViewPdf(selectedQuotation.id)}
+                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-2 rounded-lg font-bold transition-all"
+              >
+                View PDF
+              </button>
+              {selectedQuotation.status?.toLowerCase() === 'rejected' && (
+                <button 
+                  onClick={() => handleResubmit(selectedQuotation)}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold transition-all"
+                >
+                  Resubmit
+                </button>
+              )}
+              <button 
+                onClick={() => setShowDetailsModal(false)}
+                className="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg font-bold transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

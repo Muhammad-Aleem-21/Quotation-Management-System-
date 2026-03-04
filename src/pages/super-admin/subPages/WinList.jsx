@@ -19,6 +19,7 @@ const WinList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quotations, setQuotations] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
   
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const navigate = useNavigate();
@@ -62,6 +63,7 @@ const WinList = () => {
 
       if (quotesRes.data) {
         const allQuotes = quotesRes.data.data || quotesRes.data.quotations || quotesRes.data || [];
+        setTotalCount(allQuotes.length);
         
         // Filter for win/accepted status
         const winQuotes = allQuotes.filter(quote => {
@@ -192,9 +194,13 @@ const WinList = () => {
               <p className="text-purple-400 text-xs sm:text-sm mt-1">Total deal value</p>
             </div>
             <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
-              <p className="text-gray-400 text-sm sm:text-base">Success Rate</p>
-              <h2 className="text-2xl sm:text-3xl font-bold text-white mt-1 sm:mt-2">100%</h2>
-              <p className="text-blue-400 text-xs sm:text-sm mt-1">Confirmed deals</p>
+              <p className="text-gray-400 text-sm sm:text-base">Win Rate</p>
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mt-1 sm:mt-2">
+                {quotations.length > 0 && totalCount > 0 
+                  ? `${((quotations.length / totalCount) * 100).toFixed(1)}%` 
+                  : "0.0%"}
+              </h2>
+              <p className="text-blue-400 text-xs sm:text-sm mt-1">Of total submissions</p>
             </div>
           </div>
 

@@ -37,22 +37,31 @@ const SuperAdminDashboard = () => {
         // Step 1: Fetch consolidated dashboard stats
         const response = await API.get("/dashboard/stats");
         
+        let dashStats = null;
         if (response.data.success) {
-          const dashStats = response.data.dashboard_stats;
+          dashStats = response.data.dashboard_stats;
           setStats(dashStats);
-          
-          setQuotationCounts(prev => ({
-            ...prev,
-            accepted: dashStats.approved_quotations_count || dashStats.total_approved || 0,
-            rejected: dashStats.rejected_quotations_count || dashStats.total_rejected || 0,
-            pending: dashStats.pending_quotations_count || dashStats.total_pending || 0,
-            win: dashStats.win_quotations_count || dashStats.total_win || 0,
-            total: dashStats.total_quotations || 0,
-            users: dashStats.total_users || 0
-          }));
         }
 
-        // Step 3: Optional detailed fetching removed as dashboard stats should be sufficient
+        // Step 2: Fetch all quotations to get accurate counts (fallback/supplement)
+        const quotesRes = await API.get("/quotations");
+        const allQuotes = quotesRes.data.data || quotesRes.data.quotations || quotesRes.data || [];
+        
+        const counts = allQuotes.reduce((acc, quote) => {
+          const status = (quote.status || "").toLowerCase();
+          acc.total++;
+          if (status === 'approved' || status === 'accepted') acc.accepted++;
+          else if (status === 'rejected') acc.rejected++;
+          else if (status === 'pending' || status === 'submitted' || status === 'revised') acc.pending++;
+          else if (status === 'win' || status === 'completed') acc.win++;
+          return acc;
+        }, { accepted: 0, rejected: 0, pending: 0, win: 0, total: 0 });
+
+        setQuotationCounts(prev => ({
+          ...prev,
+          ...counts,
+          users: dashStats?.total_users || prev.users || 0 
+        }));
 
       } catch (err) {
         console.error("Error fetching dashboard data:", err);
@@ -81,14 +90,15 @@ const SuperAdminDashboard = () => {
     winQuotations: quotationCounts.win,
   };
 
+  // Role distribution for the pie chart
   const roleDistribution = [
     { name: "Salespersons", value: displayStats.salespersons },
     { name: "Managers", value: displayStats.managers },
     { name: "Admins", value: displayStats.admins },
-    { name: "Super Admins", value: Math.max(0, (stats?.total_users || 0) - (displayStats.salespersons + displayStats.managers + displayStats.admins)) || 1 }
+    { name: "Super Admins", value: stats?.super_admins_count || 1 }
   ];
 
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
+  const COLORS = ["#3B82F6", "#F59E0B", "#8B5CF6", "#EF4444"];
 
   const recentActivities = stats?.recent_users?.map(u => ({
     action: "New user joined",
@@ -97,12 +107,14 @@ const SuperAdminDashboard = () => {
     type: "user"
   })) || [];
 
+  // Generate growth data - current month vs placeholders for previous months
+  // Ideally, this should come from the backend, but we can at least anchor the last point to real data
+  const currentMonthName = new Date().toLocaleString('default', { month: 'short' });
   const userGrowth = [
-    { month: "Jan", users: 120, quotations: 180 },
-    { month: "Feb", users: 135, quotations: 210 },
-    { month: "Mar", users: 142, quotations: 195 },
-    { month: "Apr", users: 148, quotations: 230 },
-    { month: "May", users: displayStats.totalUsers, quotations: 245 },
+    { month: "Jan", users: Math.round(displayStats.totalUsers * 0.7), quotations: Math.round(displayStats.totalQuotations * 0.6) },
+    { month: "Feb", users: Math.round(displayStats.totalUsers * 0.8), quotations: Math.round(displayStats.totalQuotations * 0.7) },
+    { month: "Mar", users: Math.round(displayStats.totalUsers * 0.9), quotations: Math.round(displayStats.totalQuotations * 0.8) },
+    { month: currentMonthName, users: displayStats.totalUsers, quotations: displayStats.totalQuotations },
   ];
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");

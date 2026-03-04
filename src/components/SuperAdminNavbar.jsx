@@ -146,6 +146,7 @@ import {
   FiUser,
 } from "react-icons/fi";
 import { logoutUser } from "../api/api";
+import NotificationBell from "./NotificationBell";
 
 export default function SuperAdminNavbar({ open, setOpen }) {
   const navigate = useNavigate();
@@ -198,13 +199,16 @@ export default function SuperAdminNavbar({ open, setOpen }) {
               />
             </div>
             
-            {/* Button */}
-            <button 
-              onClick={() => setOpen(!open)} 
-              className="text-2xl text-gray-800"
-            >
-              {open ? <FiX /> : <FiMenu />}
-            </button>
+            {/* Notification Bell and Hamburger Button */}
+            <div className="flex items-center gap-2">
+              <NotificationBell inline={true} />
+              <button 
+                onClick={() => setOpen(!open)} 
+                className="text-2xl text-gray-800"
+              >
+                {open ? <FiX /> : <FiMenu />}
+              </button>
+            </div>
           </div>
         </div>
       </div>
