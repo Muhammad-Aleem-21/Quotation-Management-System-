@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import AdminNavbar from "../../../components/AdminNavbar";
 import { FiSearch, FiX, FiFileText, FiUser, FiCheck } from "react-icons/fi";
-import API, { getQuotations, generateQuotationPdf } from "../../../api/api";
+import API, { getQuotations, generateQuotationPdf, getTeamStats } from "../../../api/api";
 
 const Approved = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -14,6 +14,9 @@ const Approved = () => {
   const [error, setError] = useState(null);
   const [quotations, setQuotations] = useState([]);
   const [downloadingPdf, setDownloadingPdf] = useState(null);
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userRole = (user.role || "").toLowerCase();
   
   // Modal States
   const [showDetailsModal, setShowDetailsModal] = useState(false);

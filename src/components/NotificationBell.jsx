@@ -226,7 +226,10 @@ export default function NotificationBell({ inline = false }) {
               )}
             </div>
             <button
-              onClick={() => setOpen(false)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false);
+              }}
               className="text-gray-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-gray-700/50"
             >
               <FiX className="text-sm" />
@@ -279,7 +282,7 @@ export default function NotificationBell({ inline = false }) {
                   <div
                     key={notification.id || idx}
                     onClick={() => handleNotificationClick(notification)}
-                    className={`notification-item ${isUnread ? "notification-unread" : ""}`}
+                    className={`notification-item group ${isUnread ? "notification-unread" : ""}`}
                     style={{ animationDelay: `${idx * 0.05}s` }}
                   >
                     {/* Icon */}
@@ -311,7 +314,7 @@ export default function NotificationBell({ inline = false }) {
                         {actionLoading === notification.id ? (
                           <div className="w-3 h-3 border border-red-400 border-t-transparent rounded-full animate-spin" />
                         ) : (
-                          <FiTrash2 className="text-xs" />
+                          <FiX className="text-xs" />
                         )}
                       </button>
                     </div>
