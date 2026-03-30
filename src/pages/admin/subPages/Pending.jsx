@@ -9,6 +9,7 @@ import {
   FiClock,
   FiAlertCircle,
   FiCheck,
+  FiEdit,
 } from "react-icons/fi";
 import API, { getQuotations, getTeamStats, generateQuotationPdf } from "../../../api/api";
 
@@ -101,6 +102,10 @@ const Pending = () => {
     setShowRejectModal(true);
   };
 
+  const handleEdit = (quote) => {
+    navigate('/create-quotation', { state: { editQuotation: quote } });
+  };
+
   const confirmReject = async () => {
     if (!rejectionReason.trim()) {
       alert("Please provide a reason for rejection.");
@@ -190,7 +195,7 @@ const Pending = () => {
         setShowDetailsModal(true);
       }
     }
-  }, [highlightId, quotations, showDetailsModal, showRejectModal]);
+  }, [highlightId, quotations]);
 
   const pendingQuotations = quotations;
 
@@ -383,7 +388,7 @@ const Pending = () => {
                 <thead className="bg-gray-700 hidden sm:table-header-group">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">ID</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Created By</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Customer</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Date</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Amount</th>
@@ -448,6 +453,13 @@ const Pending = () => {
                               >
                                 View Details
                               </button>
+                              <button 
+                                onClick={() => handleEdit(quote)}
+                                className="w-full bg-amber-600 hover:bg-amber-700 text-white py-2 rounded text-sm font-medium transition-colors flex items-center justify-center gap-2 mt-2"
+                              >
+                                <FiEdit size={16} />
+                                Edit
+                              </button>
                             </div>
                           </div>
                         </td>
@@ -496,6 +508,14 @@ const Pending = () => {
                                 title="View Details"
                             >
                                 Details
+                            </button>
+                            <button 
+                                onClick={() => handleEdit(quote)}
+                                className="bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors duration-200 flex items-center gap-1"
+                                title="Edit Quotation"
+                            >
+                                <FiEdit size={14} />
+                                Edit
                             </button>
                             <button 
                                 onClick={() => handleViewPdf(quote.id)}
@@ -664,6 +684,16 @@ const Pending = () => {
                   <div className="hidden sm:block sm:flex-1 order-2"></div>
 
                   <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto order-1 sm:order-3">
+                    <button
+                      onClick={() => {
+                        handleEdit(selectedQuotation);
+                        setShowDetailsModal(false);
+                      }}
+                      className="w-full sm:w-auto px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-semibold shadow-lg shadow-amber-600/20 transition-all text-center flex items-center justify-center gap-2"
+                    >
+                      <FiEdit size={16} />
+                      Edit
+                    </button>
                     <button
                       onClick={() => {
                         setShowDetailsModal(false);

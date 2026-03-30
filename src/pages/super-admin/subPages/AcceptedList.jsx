@@ -121,7 +121,7 @@ const AcceptedList = () => {
         setShowDetailsModal(true);
       }
     }
-  }, [highlightId, quotations, showDetailsModal]);
+  }, [highlightId, quotations]);
 
   const approvedQuotations = quotations;
 
@@ -283,7 +283,7 @@ const AcceptedList = () => {
                 <thead className="bg-gray-700 hidden sm:table-header-group">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">ID</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Created By</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Customer</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Date</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Amount</th>

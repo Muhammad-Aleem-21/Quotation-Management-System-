@@ -44,7 +44,8 @@ const ManagerDashboard = () => {
     activeQuotations: 0,
     teamRevenue: 0,
     pendingApprovals: 0,
-    rejectedQuotations: 0
+    rejectedQuotations: 0,
+    myQuotationsCount: 0
   });
 
   useEffect(() => {
@@ -66,31 +67,45 @@ const ManagerDashboard = () => {
         const ds = statsResponse.data.dashboard_stats;
         const myTeam = ds.my_team || [];
         
-        // Get IDs of all salespersons in this manager's team (including the manager)
+        // Get IDs of all salespersons in this manager's team (EXCLUDING the manager for team stats)
         const teamMemberIds = myTeam
           .filter(member => 
-            member.manager_id?.toString() === userId || 
-            member.parent_id?.toString() === userId ||
-            member.id?.toString() === userId
+            (member.manager_id?.toString() === userId || 
+             member.parent_id?.toString() === userId) &&
+            member.id?.toString() !== userId
           )
           .map(member => member.id?.toString());
         
-        if (!teamMemberIds.includes(userId)) teamMemberIds.push(userId);
-
         const allQuotes = quotesResponse.data?.data || quotesResponse.data?.quotations || quotesResponse.data || [];
+        
+        // Team quotes: quotations created by team members (not the manager)
         const teamQuotes = allQuotes.filter(quote => {
           const creatorId = String(quote.user_id || quote.salesperson_id || quote.user?.id || "");
           return teamMemberIds.includes(creatorId);
         });
 
+        // My quotes: quotations created by this manager specifically
+        const myQuotes = allQuotes.filter(q => {
+          const possibleIds = [
+            q.salesperson_id,
+            q.user_id,
+            q.created_by,
+            q.approved_by,
+            q.client?.salesperson_id,
+            q.user?.id
+          ].map(id => id ? String(id) : null).filter(Boolean);
+          return possibleIds.includes(userId);
+        });
+
         setStats({
-          totalSalespersons: teamMemberIds.length - 1, // Exclude manager from salesperson count
+          totalSalespersons: teamMemberIds.length, 
           activeQuotations: teamQuotes.filter(q => ['approved', 'accepted'].includes(q.status?.toLowerCase())).length,
           teamRevenue: teamQuotes
             .filter(q => ['approved', 'accepted', 'win'].includes(q.status?.toLowerCase()))
             .reduce((sum, q) => sum + parseFloat(String(q.final_amount || q.total_amount || 0).replace(/[$,]/g, '')), 0),
           pendingApprovals: teamQuotes.filter(q => ['pending', 'submitted', 'revised'].includes(q.status?.toLowerCase())).length,
-          rejectedQuotations: teamQuotes.filter(q => q.status?.toLowerCase() === 'rejected').length
+          rejectedQuotations: teamQuotes.filter(q => q.status?.toLowerCase() === 'rejected').length,
+          myQuotationsCount: myQuotes.length
         });
       }
     } catch (error) {
@@ -141,7 +156,7 @@ const ManagerDashboard = () => {
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-gray-400 text-sm sm:text-base">
-                Active Quotations
+                Approved Quotations
               </h2>
               <p className="text-2xl sm:text-3xl font-bold text-yellow-400 mt-1 sm:mt-2">
                 {loading ? "..." : stats.activeQuotations}
@@ -242,6 +257,31 @@ const ManagerDashboard = () => {
             </div>
             <div className="w-10 h-10 sm:w-14 sm:h-14 bg-red-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl">
               ❌
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* My Quotations Card */}
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div
+          className="bg-gradient-to-br from-cyan-500/20 to-blue-500/20 p-4 sm:p-6 rounded-xl border border-cyan-500/30 cursor-pointer hover:border-cyan-500 transition-colors duration-200"
+          onClick={() => navigate("/manager/my-quotations")}
+        >
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-gray-400 text-sm sm:text-base">
+                My Quotations
+              </p>
+              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">
+                {loading ? "..." : stats.myQuotationsCount}
+              </h2>
+              <p className="text-cyan-400 text-xs sm:text-sm mt-1">
+                Created by me → Click to view
+              </p>
+            </div>
+            <div className="w-10 h-10 sm:w-14 sm:h-14 bg-cyan-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl">
+              📝
             </div>
           </div>
         </div>

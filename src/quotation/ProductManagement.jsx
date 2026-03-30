@@ -7,805 +7,84 @@ import {
   createProduct,
   getVariantTypes,
   getVariantOptions,
-  setProductPriceMatrix,
   getProducts,
-  bulkUpdateProductPrices,
   deleteProduct,
   updateProduct,
+  //createPriceMatrix,   // ← ADD THIS
+  setProductPriceMatrix,
+  getProductPriceMatrix,  // ← ADD THIS
 } from "../api/api";
 
-const cableData = {
-  "Imperial Sizes BS-2004": [
-    { name: '1/.044" Solid', price: 6577 },
-    { name: '3/.029" Stranded', price: 8490 },
-    { name: '7/.029" Stranded', price: 18591 },
-    { name: '7/.036" Stranded', price: 28760 },
-    { name: '7/.044" Stranded', price: 42420 },
-    { name: '7/.052" Stranded', price: 58717 },
-    { name: '7/.064" Stranded', price: 89952 },
-  ],
-  "Co-axial Cables(RG-Type)": [
-    { name: "RG-6U", price: 20681 },
-    { name: "RG-7U", price: 23291 },
-    { name: "RG-11U", price: 30610 },
-    { name: "CAT-6", price: 22205 },
-    { name: "CCTV", price: 15920 },
-    { name: "Fire Alarm (1.5mm²)", price: 50149 },
-    { name: "Fire Alarm (2.5mm²)", price: 78067 },
-    { name: "Speaker Wire (1.5mm²)", price: 29324 },
-    { name: "Speaker Wire (2.5mm²)", price: 50007 },
-  ],
-  "Telephone & Intercom Cables": [
-    { name: "Single Pair", price: 7346 },
-    { name: "Two Pairs", price: 11167 },
-    { name: "Three Pairs", price: 15720 },
-    { name: "Four Pairs", price: 22102 },
-    { name: "Five Pairs", price: 24506 },
-    { name: "Six Pairs", price: 32498 },
-    { name: "Seven Pairs", price: 35893 },
-    { name: "Eight Pairs", price: 43735 },
-    { name: "Nine Pairs", price: 48578 },
-    { name: "Ten Pairs", price: 52859 },
-  ],
-  "DC Solar Flexible Photovoltic UV-Resistant Cable": {
-    types: ["PVC/PVC", "XLPE/PVC", "XLPO/XLPO"],
-    copperTypes: ["Plain Copper", "TINNED Copper"],
-    cables: [
-      { name: "1.5 mm²", plainPrice: 12185, tinnedPrice: 13745 },
-      { name: "2.5 mm²", plainPrice: 19685, tinnedPrice: 22281 },
-      { name: "4.0 mm²", plainPrice: 30217, tinnedPrice: 34397 },
-      { name: "6.0 mm²", plainPrice: 44424, tinnedPrice: 50699 },
-      { name: "10 mm²", plainPrice: 74922, tinnedPrice: 85541 },
-    ],
-  },
-  "General cables": [
-    {
-      description: "1.0mm² Solid",
-      formation: "1/1.13 mm",
-      prices: {
-        singleCore: 6590,
-        twoCoreFlat: 16575,
-        threeCoreRound: 23083,
-        fourCoreRound: 30399,
-      },
-    },
-    {
-      description: "1.5mm² Solid",
-      formation: "1/1.38 mm",
-      prices: {
-        singleCore: 8892,
-        twoCoreFlat: 22190,
-        threeCoreRound: 31336,
-        fourCoreRound: 41290,
-      },
-    },
-    {
-      description: "1.5 mm² Stranded",
-      formation: "7/0.53 mm",
-      prices: {
-        singleCore: 9870,
-        twoCoreFlat: 24187,
-        threeCoreRound: 34157,
-        fourCoreRound: 45006,
-      },
-    },
-    {
-      description: "2.5 mm² Solid",
-      formation: "1/1.78 mm",
-      prices: {
-        singleCore: 14891,
-        twoCoreFlat: 35291,
-        threeCoreRound: 50521,
-        fourCoreRound: 67282,
-      },
-    },
-    {
-      description: "2.5 mm² Stranded",
-      formation: "7/0.67 mm",
-      prices: {
-        singleCore: 16270,
-        twoCoreFlat: 38467,
-        threeCoreRound: 55068,
-        fourCoreRound: 73337,
-      },
-    },
-    {
-      description: "4.0 mm² Stranded",
-      formation: "7/0.85 mm",
-      prices: {
-        singleCore: 24082,
-        twoCoreFlat: 55837,
-        threeCoreRound: 80343,
-        fourCoreRound: 106465,
-      },
-    },
-    {
-      description: "6.0 mm² Stranded",
-      formation: "7/1.04 mm",
-      prices: {
-        singleCore: 35742,
-        twoCoreFlat: 79919,
-        threeCoreRound: 116170,
-        fourCoreRound: 154674,
-      },
-    },
-    {
-      description: "10 mm² Stranded",
-      formation: "7/1.35 mm",
-      prices: {
-        singleCore: 60124,
-        twoCoreFlat: 131779,
-        threeCoreRound: 192580,
-        fourCoreRound: 257082,
-      },
-    },
-    {
-      description: "16 mm² Stranded",
-      formation: "7/1.70 mm",
-      prices: {
-        singleCore: 95020,
-        twoCoreFlat: 203732,
-        threeCoreRound: 0,
-        fourCoreRound: 0,
-      },
-    },
-  ],
-  "Flexible Cables BS 6500 IEC 60228": [
-    {
-      description: '0.5 mm² (14/.0076")',
-      prices: {
-        singleCore: 3906,
-        twoCoreRound: 11512,
-        threeCoreRound: 15495,
-        fourCoreRound: 19994,
-      },
-    },
-    {
-      description: '0.75 mm² (23/.0076")',
-      prices: {
-        singleCore: 5563,
-        twoCoreRound: 15734,
-        threeCoreRound: 21556,
-        fourCoreRound: 28013,
-      },
-    },
-    {
-      description: '1.0 mm² (40/.0076")',
-      prices: {
-        singleCore: 7289,
-        twoCoreRound: 19804,
-        threeCoreRound: 27460,
-        fourCoreRound: 35795,
-      },
-    },
-    {
-      description: '1.5 mm² (70/.0076")',
-      prices: {
-        singleCore: 10678,
-        twoCoreRound: 27687,
-        threeCoreRound: 38607,
-        fourCoreRound: 50365,
-      },
-    },
-    {
-      description: '2.5 mm² (110/.0076")',
-      prices: {
-        singleCore: 17533,
-        twoCoreRound: 43801,
-        threeCoreRound: 62204,
-        fourCoreRound: 81170,
-      },
-    },
-    {
-      description: '4.0 mm² (162/.0076")',
-      prices: {
-        singleCore: 27637,
-        twoCoreRound: 67189,
-        threeCoreRound: 95715,
-        fourCoreRound: 125597,
-      },
-    },
-  ],
-  "ALUMINIUM CABLES": {
-    unarmoured: [
-      {
-        size: '10 mm² (7/0.052")',
-        prices: {
-          single: 165,
-          two: 353,
-          three: 541,
-          threeHalf: 612,
-          four: 682,
-        },
-      },
-      {
-        size: '16 mm² (7/0.064")',
-        prices: {
-          single: 227,
-          two: 486,
-          three: 721,
-          threeHalf: 738,
-          four: 832,
-        },
-      },
-      {
-        size: '25 mm² (19/0.052")',
-        prices: {
-          single: 311,
-          two: 682,
-          three: 1020,
-          threeHalf: 1082,
-          four: 1161,
-        },
-      },
-      {
-        size: '35 mm² (19/0.064")',
-        prices: {
-          single: 385,
-          two: 832,
-          three: 1271,
-          threeHalf: 1321,
-          four: 1482,
-        },
-      },
-      {
-        size: '50 mm² (19/0.072")',
-        prices: {
-          single: 541,
-          two: 1091,
-          three: 1679,
-          threeHalf: 1809,
-          four: 1992,
-        },
-      },
-      {
-        size: '70 mm² (19/0.083")',
-        prices: {
-          single: 698,
-          two: 1404,
-          three: 2008,
-          threeHalf: 2392,
-          four: 2644,
-        },
-      },
-      {
-        size: '95 mm² (37/0.072")',
-        prices: {
-          single: 965,
-          two: 1942,
-          three: 2729,
-          threeHalf: 3215,
-          four: 3600,
-        },
-      },
-      {
-        size: '120 mm² (37/0.083")',
-        prices: {
-          single: 1138,
-          two: 2298,
-          three: 3326,
-          threeHalf: 4015,
-          four: 4387,
-        },
-      },
-      {
-        size: '150 mm² (37/0.093")',
-        prices: {
-          single: 1388,
-          two: 2808,
-          three: 4062,
-          threeHalf: 4753,
-          four: 5365,
-        },
-      },
-      {
-        size: '185 mm² (37/0.103")',
-        prices: {
-          single: 1718,
-          two: 3449,
-          three: 5051,
-          threeHalf: 5959,
-          four: 6667,
-        },
-      },
-      {
-        size: '240 mm² (61/0.093")',
-        prices: {
-          single: 2212,
-          two: 4462,
-          three: 6424,
-          threeHalf: 7915,
-          four: 8596,
-        },
-      },
-      {
-        size: '300 mm² (61/0.103")',
-        prices: {
-          single: 2738,
-          two: 5506,
-          three: 7985,
-          threeHalf: 9253,
-          four: 10659,
-        },
-      },
-      {
-        size: '400 mm² (91/0.093")',
-        prices: {
-          single: 3420,
-          two: 6879,
-          three: 10188,
-          threeHalf: 11844,
-          four: 13482,
-        },
-      },
-      {
-        size: '500 mm² (91/0.103")',
-        prices: { single: 4227, two: 0, three: 0, threeHalf: 0, four: 0 },
-      },
-      {
-        size: '630 mm² (127/0.103")',
-        prices: { single: 5309, two: 0, three: 0, threeHalf: 0, four: 0 },
-      },
-    ],
-    armoured: [
-      {
-        size: '10 mm² (7/0.052")',
-        prices: {
-          single: 0,
-          two: 776,
-          three: 1059,
-          threeHalf: 1227,
-          four: 1365,
-        },
-      },
-      {
-        size: '16 mm² (7/0.064")',
-        prices: {
-          single: 0,
-          two: 1091,
-          three: 1294,
-          threeHalf: 1553,
-          four: 1765,
-        },
-      },
-      {
-        size: '25 mm² (19/0.052")',
-        prices: {
-          single: 0,
-          two: 1411,
-          three: 1773,
-          threeHalf: 2086,
-          four: 2173,
-        },
-      },
-      {
-        size: '35 mm² (19/0.064")',
-        prices: {
-          single: 0,
-          two: 1686,
-          three: 2118,
-          threeHalf: 2408,
-          four: 2573,
-        },
-      },
-      {
-        size: '50 mm² (19/0.072")',
-        prices: {
-          single: 824,
-          two: 2094,
-          three: 2654,
-          threeHalf: 3044,
-          four: 3600,
-        },
-      },
-      {
-        size: '70 mm² (19/0.083")',
-        prices: {
-          single: 1007,
-          two: 2533,
-          three: 3624,
-          threeHalf: 4145,
-          four: 4479,
-        },
-      },
-      {
-        size: '95 mm² (37/0.072")',
-        prices: {
-          single: 1302,
-          two: 3538,
-          three: 4573,
-          threeHalf: 5639,
-          four: 6024,
-        },
-      },
-      {
-        size: '120 mm² (37/0.083")',
-        prices: {
-          single: 1704,
-          two: 4076,
-          three: 5309,
-          threeHalf: 6862,
-          four: 7286,
-        },
-      },
-      {
-        size: '150 mm² (37/0.093")',
-        prices: {
-          single: 2149,
-          two: 4786,
-          three: 6847,
-          threeHalf: 7796,
-          four: 8549,
-        },
-      },
-      {
-        size: '185 mm² (37/0.103")',
-        prices: {
-          single: 2526,
-          two: 6165,
-          three: 8118,
-          threeHalf: 9356,
-          four: 10274,
-        },
-      },
-      {
-        size: '240 mm² (61/0.093")',
-        prices: {
-          single: 2979,
-          two: 7459,
-          three: 10032,
-          threeHalf: 11545,
-          four: 12541,
-        },
-      },
-      {
-        size: '300 mm² (61/0.103")',
-        prices: {
-          single: 3600,
-          two: 8973,
-          three: 11968,
-          threeHalf: 13780,
-          four: 15027,
-        },
-      },
-      {
-        size: '400 mm² (91/0.093")',
-        prices: {
-          single: 4424,
-          two: 10789,
-          three: 14479,
-          threeHalf: 17851,
-          four: 19444,
-        },
-      },
-      {
-        size: '500 mm² (91/0.103")',
-        prices: { single: 5622, two: 0, three: 0, threeHalf: 0, four: 0 },
-      },
-      {
-        size: '630 mm² (127/0.103")',
-        prices: { single: 7369, two: 0, three: 0, threeHalf: 0, four: 0 },
-      },
-    ],
-  },
-  "POWER CABLES": {
-    unarmoured: [
-      {
-        size: '16 mm² (7/0.064")',
-        prices: {
-          single: 1056,
-          sc: 1082,
-          three: 3178,
-          threeHalf: 3729,
-          four: 4262,
-        },
-      },
-      {
-        size: '25 mm² (19/0.052")',
-        prices: {
-          single: 1589,
-          sc: 1628,
-          three: 4965,
-          threeHalf: 6057,
-          four: 6660,
-        },
-      },
-      {
-        size: '35 mm² (19/0.064")',
-        prices: {
-          single: 2191,
-          sc: 2236,
-          three: 6797,
-          threeHalf: 7923,
-          four: 9137,
-        },
-      },
-      {
-        size: '50 mm² (19/0.072")',
-        prices: {
-          single: 2966,
-          sc: 3027,
-          three: 9170,
-          threeHalf: 10914,
-          four: 12417,
-        },
-      },
-      {
-        size: '70 mm² (19/0.083")',
-        prices: {
-          single: 4270,
-          sc: 4341,
-          three: 13147,
-          threeHalf: 15563,
-          four: 17792,
-        },
-      },
-      {
-        size: '95 mm² (37/0.072")',
-        prices: {
-          single: 5919,
-          sc: 6015,
-          three: 18185,
-          threeHalf: 18698,
-          four: 24491,
-        },
-      },
-      {
-        size: '120 mm² (37/0.083")',
-        prices: {
-          single: 7460,
-          sc: 7567,
-          three: 22889,
-          threeHalf: 27542,
-          four: 30829,
-        },
-      },
-      {
-        size: '150 mm² (37/0.093")',
-        prices: {
-          single: 9166,
-          sc: 9300,
-          three: 28099,
-          threeHalf: 32834,
-          four: 37854,
-        },
-      },
-      {
-        size: '185 mm² (37/0.103")',
-        prices: {
-          single: 11493,
-          sc: 11659,
-          three: 35213,
-          threeHalf: 41732,
-          four: 47449,
-        },
-      },
-      {
-        size: '240 mm² (61/0.093")',
-        prices: {
-          single: 15098,
-          sc: 15307,
-          three: 46194,
-          threeHalf: 54429,
-          four: 62254,
-        },
-      },
-      {
-        size: '300 mm² (61/0.103")',
-        prices: {
-          single: 18935,
-          sc: 19190,
-          three: 57901,
-          threeHalf: 68039,
-          four: 78043,
-        },
-      },
-      {
-        size: '400 mm² (91/0.093")',
-        prices: {
-          single: 24197,
-          sc: 24508,
-          three: 73943,
-          threeHalf: 86668,
-          four: 99668,
-        },
-      },
-      {
-        size: '500 mm² (91/0.103")',
-        prices: { single: 30490, sc: 30864, three: 0, threeHalf: 0, four: 0 },
-      },
-      {
-        size: '630 mm² (127/0.103")',
-        prices: { single: 39296, sc: 39781, three: 0, threeHalf: 0, four: 0 },
-      },
-    ],
-    armoured: [
-      {
-        size: '10 mm² (7/0.052")',
-        prices: { single: 0, sc: 0, three: 2395, threeHalf: 2815, four: 3218 },
-      },
-      {
-        size: '16 mm² (7/0.064")',
-        prices: { single: 0, sc: 0, three: 3595, threeHalf: 4289, four: 4903 },
-      },
-      {
-        size: '25 mm² (19/0.052")',
-        prices: { single: 0, sc: 0, three: 5616, threeHalf: 6762, four: 7469 },
-      },
-      {
-        size: '35 mm² (19/0.064")',
-        prices: { single: 0, sc: 0, three: 7547, threeHalf: 8722, four: 10047 },
-      },
-      {
-        size: '50 mm² (19/0.072")',
-        prices: {
-          single: 0,
-          sc: 3321,
-          three: 10062,
-          threeHalf: 11856,
-          four: 13755,
-        },
-      },
-      {
-        size: '70 mm² (19/0.083")',
-        prices: {
-          single: 0,
-          sc: 4739,
-          three: 14350,
-          threeHalf: 16840,
-          four: 19216,
-        },
-      },
-      {
-        size: '95 mm² (37/0.072")',
-        prices: {
-          single: 0,
-          sc: 6498,
-          three: 19644,
-          threeHalf: 20252,
-          four: 26263,
-        },
-      },
-      {
-        size: '120 mm² (37/0.083")',
-        prices: {
-          single: 0,
-          sc: 8098,
-          three: 24497,
-          threeHalf: 29581,
-          four: 33256,
-        },
-      },
-      {
-        size: '150 mm² (37/0.093")',
-        prices: {
-          single: 0,
-          sc: 10013,
-          three: 30254,
-          threeHalf: 35107,
-          four: 40540,
-        },
-      },
-      {
-        size: '185 mm² (37/0.103")',
-        prices: {
-          single: 0,
-          sc: 12459,
-          three: 37627,
-          threeHalf: 44300,
-          four: 50456,
-        },
-      },
-      {
-        size: '240 mm² (61/0.093")',
-        prices: {
-          single: 0,
-          sc: 16211,
-          three: 48923,
-          threeHalf: 57349,
-          four: 65646,
-        },
-      },
-      {
-        size: '300 mm² (61/0.103")',
-        prices: {
-          single: 0,
-          sc: 20218,
-          three: 61003,
-          threeHalf: 71338,
-          four: 81796,
-        },
-      },
-      {
-        size: '400 mm² (91/0.093")',
-        prices: {
-          single: 0,
-          sc: 25820,
-          three: 77901,
-          threeHalf: 90869,
-          four: 104463,
-        },
-      },
-      {
-        size: '500 mm² (91/0.103")',
-        prices: { single: 0, sc: 32408, three: 0, threeHalf: 0, four: 0 },
-      },
-      {
-        size: '630 mm² (127/0.103")',
-        prices: { single: 0, sc: 41770, three: 0, threeHalf: 0, four: 0 },
-      },
-    ],
-  },
-  // additional category appended at request
-  "Project Management Cable": [{ name: "New Cable", price: 0 }],
+// ─────────────────────────────────────────────
+// Each "core entry" in the local state is:
+// { localId: string, name: string, price: string, coil_length: string }
+// localId is a client-only UUID so two entries can have the same name without
+// colliding.  We only resolve to a real DB core_type_id at save-time.
+// ─────────────────────────────────────────────
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+const generateCode = (str) => {
+  if (!str) return "";
+  let s = str.toString().toLowerCase().trim();
+  if (s.includes("single")) return "single_core";
+  const match = s.match(/(\d+)/);
+  if (match) return `${match[1]}_core`;
+  return s.replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+};
+
+// ─────────────────────────────────────────────
+const EMPTY_PRODUCT = {
+  name: "",
+  description: "",
+  size: "",
+  construction: "",
+  material: "",
+  gauge: "",
+  voltage_rating: "",
+  uom: "MTR",
+  base_price: "",
+  coil_length: "",
+  category_name: "",
+  category_code: "",
 };
 
 const ProductManagement = () => {
-  const [mode, setMode] = useState("edit"); // 'edit' or 'add'
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedCable, setSelectedCable] = useState("");
-  const [selectedSubCategory, setSelectedSubCategory] = useState("");
-  const [priceFields, setPriceFields] = useState({});
+  const [mode, setMode] = useState("edit"); // 'edit' | 'add'
   const [submitting, setSubmitting] = useState(false);
-  const [allProducts, setAllProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
-
-  // variant-related states
-  const [variantTypes, setVariantTypes] = useState([]);
-  const [variantOptions, setVariantOptions] = useState([]);
-  const [selectedVariantType, setSelectedVariantType] = useState("");
-  const [selectedVariantOption, setSelectedVariantOption] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Price matrix: { [core_type_id]: { price: number, coil_length: number } }
-  const [corePrices, setCorePrices] = useState({});
-
-  // Multi-select core types (array of selected core type IDs)
-  const [selectedCoreTypeIds, setSelectedCoreTypeIds] = useState([]);
-
-  const [newProduct, setNewProduct] = useState({
-    name: "",
-    description: "",
-    size: "",
-    construction: "",
-    core_type: "",
-    material: "",
-    gauge: "",
-    voltage_rating: "",
-    uom: "MTR",
-    base_price: "",
-    coil_length: "",
-    category_name: "",
-    category_code: "",
-  });
-
-  const generateCode = (str) => {
-    if (!str) return "";
-    let s = str.toString().toLowerCase().trim();
-
-    if (s.includes("single")) return "single_core";
-
-    const match = s.match(/(\d+)/);
-    if (match) {
-      return `${match[1]}_core`;
-    }
-
-    return s
-      .replace(/\s+/g, "_")
-      .replace(/[^a-z0-9_]/g, "");
-  };
-
-  // Handle new product field changes
-  const handleProductFieldChange = (field, value) => {
-    setNewProduct((prev) => ({ ...prev, [field]: value }));
-  };
-
+  // ── DB state ──────────────────────────────
   const [dbCategories, setDbCategories] = useState([]);
   const [dbCoreTypes, setDbCoreTypes] = useState([]);
-  const [isManualCore, setIsManualCore] = useState(false);
+  const [variantTypes, setVariantTypes] = useState([]);
+  const [variantOptions, setVariantOptions] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
+
+  // ── Selection ─────────────────────────────
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedSubCategory, setSelectedSubCategory] = useState("");
+  const [selectedCable, setSelectedCable] = useState(""); // product id (edit) or "" (add)
+  const [selectedVariantType, setSelectedVariantType] = useState("");
+  const [selectedVariantOption, setSelectedVariantOption] = useState("");
+
+  // ── Product form ──────────────────────────
+  const [newProduct, setNewProduct] = useState(EMPTY_PRODUCT);
   const [isManualCategory, setIsManualCategory] = useState(false);
 
-  // Fetch data from DB
+  // ── Core entries (free-form, per-product) ─
+  // Array of { localId, name, price, coil_length }
+  const [coreEntries, setCoreEntries] = useState([]);
+  const [newCoreName, setNewCoreName] = useState("");
+  const [showAddCore, setShowAddCore] = useState(false);
+  // ── Post-create core type flow ─────────────
+  const [justCreatedProduct, setJustCreatedProduct] = useState(null); // { id, name, base_price }
+  const [showPostCreateCoreTypes, setShowPostCreateCoreTypes] = useState(false);
+  const [postCreateSubmitting, setPostCreateSubmitting] = useState(false);
+  const [productPriceMatrices, setProductPriceMatrices] = useState({});//newly added
+
+  // ─────────────────────────────────────────
+  // Fetch
+  // ─────────────────────────────────────────
   const fetchData = async () => {
     try {
       const [catRes, coreRes, varTypeRes, prodRes] = await Promise.all([
@@ -815,452 +94,324 @@ const ProductManagement = () => {
         getProducts(),
       ]);
 
-      console.log("Fetched Categories:", catRes.data);
-      console.log("Fetched Core Types:", coreRes.data);
-      console.log("Fetched Variant Types:", varTypeRes.data);
-      console.log("Fetched Products:", prodRes.data);
+      const extract = (res, ...keys) => {
+        for (const k of keys) if (res.data?.[k]) return res.data[k];
+        return Array.isArray(res.data) ? res.data : [];
+      };
 
-      // Handle common response patterns for categories
-      const categoriesData =
-        catRes.data?.data ||
-        catRes.data?.categories ||
-        (Array.isArray(catRes.data) ? catRes.data : []);
-      setDbCategories(categoriesData);
+      const categories = extract(catRes, "data", "categories");
+      const coreTypes = extract(coreRes, "data", "core_types");
+      const varTypes = extract(varTypeRes, "data", "variant_types");
+      const products = extract(prodRes, "data", "products");
 
-      // Handle common response patterns for core types
-      const coreTypesData =
-        coreRes.data?.data ||
-        coreRes.data?.core_types ||
-        (Array.isArray(coreRes.data) ? coreRes.data : []);
-      setDbCoreTypes(coreTypesData);
+      setDbCategories(categories);
+      setDbCoreTypes(coreTypes);
+      setVariantTypes(varTypes);
+      setAllProducts(products);
+      console.log("Products sample:", products[0]);
+      console.log("has_core_types value:", products[0]?.has_core_types);
+      console.log("productsWithCores count:", products.filter(p => p.has_core_types).length);
 
-      // record variant types
-      const variantTypesData =
-        varTypeRes.data?.data ||
-        varTypeRes.data?.variant_types ||
-        (Array.isArray(varTypeRes.data) ? varTypeRes.data : []);
-      setVariantTypes(variantTypesData);
+      // Fetch price matrices for products that have core types
+      const productsWithCores = products.filter((p) => p.has_core_types);
+      const matrixResults = await Promise.all(
+        productsWithCores.map((p) =>
+          getProductPriceMatrix(p.id)
+            .then((res) => ({ id: p.id, data: res.data }))
+            .catch(() => ({ id: p.id, data: null }))
+        )
+      );
 
-      // record products
-      const productsData =
-        prodRes.data?.data ||
-        prodRes.data?.products ||
-        (Array.isArray(prodRes.data) ? prodRes.data : []);
-      setAllProducts(productsData);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  };
-
-  const handleDeleteProduct = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this product?")) return;
-    try {
-      setSubmitting(true);
-      await deleteProduct(id);
-      alert("Product deleted successfully");
-      fetchData();
-    } catch (error) {
-      console.error("Delete Error:", error);
-      alert("Failed to delete product: " + (error.response?.data?.message || error.message));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // Combine DB categories with static categories
-  const categories = useMemo(() => {
-    return [
-      ...new Set([...Object.keys(cableData), ...dbCategories.map((c) => c.name)]),
-    ];
-  }, [dbCategories]);
-
-  // Helper function to get cable list based on category
-  const getCableList = () => {
-    if (!selectedCategory) return [];
-
-    const list = [];
-    
-    // 1. Add static products if they exist for this category
-    if (cableData[selectedCategory]) {
-      switch (selectedCategory) {
-        case "Imperial Sizes BS-2004":
-        case "Co-axial Cables(RG-Type)":
-        case "Telephone & Intercom Cables":
-          list.push(...(cableData[selectedCategory] || []));
-          break;
-
-        case "General cables":
-        case "Flexible Cables BS 6500 IEC 60228":
-          list.push(...(cableData[selectedCategory] || []));
-          break;
-
-        case "DC Solar Flexible Photovoltic UV-Resistant Cable":
-          list.push(...(cableData[selectedCategory].cables || []));
-          break;
-
-        case "POWER CABLES":
-        case "ALUMINIUM CABLES": {
-          if (selectedSubCategory) {
-            const data = cableData[selectedCategory];
-            list.push(...(selectedSubCategory === "UN-ARMOURED CABLES"
-              ? data.unarmoured
-              : data.armoured));
-          }
-          break;
-        }
+      const matrices = {};
+      for (const { id, data } of matrixResults) {
+        if (!data) continue;
+        const coreTypesForProduct = data.core_types || [];
+        const prices = data.prices || {};
+        matrices[id] = coreTypesForProduct
+          .filter((ct) => prices[ct.code]?.exists === true)
+          .map((ct) => ({
+            id: ct.id,
+            name: ct.display_name || ct.name,
+            code: ct.code,
+            price: prices[ct.code]?.price,
+            coil_length: prices[ct.code]?.coil_length,
+          }));
       }
+      setProductPriceMatrices(matrices);
+
+    } catch (err) {
+      console.error("Error fetching data:", err);
     }
-
-    // 2. Add database products
-    const dbFiltered = allProducts.filter(p => {
-      const cat = dbCategories.find(c => String(c.id) === String(p.category_id));
-      return cat && cat.name === selectedCategory;
-    });
-    list.push(...dbFiltered);
-
-    return list;
   };
 
-  // Handle category change
+  useEffect(() => { fetchData(); }, []);
+
+  // ─────────────────────────────────────────
+  // Helpers
+  // ─────────────────────────────────────────
+  const handleProductFieldChange = (field, value) =>
+    setNewProduct((prev) => ({ ...prev, [field]: value }));
+
+  const handleReset = () => {
+    setSelectedCategory("");
+    setSelectedCable("");
+    setSelectedSubCategory("");
+    setNewProduct(EMPTY_PRODUCT);
+    setIsManualCategory(false);
+    setSelectedVariantType("");
+    setSelectedVariantOption("");
+    setVariantOptions([]);
+    setCoreEntries([]);
+    setNewCoreName("");
+    setShowAddCore(false);
+    setJustCreatedProduct(null);         // ← ADD
+    setShowPostCreateCoreTypes(false);   // ← ADD
+    setPostCreateSubmitting(false);      // ← ADD
+  };
+
+  // ─────────────────────────────────────────
+  // Category helpers
+  // ─────────────────────────────────────────
   const handleCategoryChange = (category) => {
     setSelectedCategory(category);
     setSelectedCable("");
     setSelectedSubCategory("");
-    setPriceFields({});
-
-    // Set default subcategory for categories that need it
-    if (
-      category.includes("POWER CABLES") ||
-      category.includes("ALUMINIUM CABLES") ||
-      category.includes("Power Cables") ||
-      category.includes("Aluminium Cables")
-    ) {
-      setSelectedSubCategory("UN-ARMOURED CABLES");
-    }
+    setCoreEntries([]);
   };
 
-  // Handle cable selection for editing
-  const handleCableSelect = (cable) => {
-    setSelectedCable(cable);
-
-    // Extract current prices based on category
-    let selectedCableData = allProducts.find(p => String(p.id) === String(cable));
-    
-    // If not found in DB products, check static products
-    if (!selectedCableData) {
-      const cableList = getCableList();
-      selectedCableData = cableList.find((item) => {
-        const name = item.name || item.description || item.size;
-        
-        if (cableData[selectedCategory]) {
-          if (selectedCategory === "DC Solar Flexible Photovoltic UV-Resistant Cable") {
-            return item.name === cable;
-          } else if (selectedCategory === "General cables" || selectedCategory === "Flexible Cables BS 6500 IEC 60228") {
-            return item.description === cable;
-          } else if (selectedCategory === "POWER CABLES" || selectedCategory === "ALUMINIUM CABLES") {
-            return item.size === cable;
-          }
-        }
-        
-        return name === cable;
-      });
-    }
-
-    if (selectedCableData) {
-      if (selectedCableData.id) {
-        // Handle database products
-        // Populate newProduct state for editing
-        setNewProduct({
-          name: selectedCableData.name || "",
-          description: selectedCableData.description || "",
-          size: selectedCableData.size || "",
-          construction: selectedCableData.construction || "",
-          core_type: selectedCableData.core_type || "",
-          material: selectedCableData.material || "",
-          gauge: selectedCableData.gauge || "",
-          voltage_rating: selectedCableData.voltage_rating || "",
-          uom: selectedCableData.uom || "MTR",
-          base_price: selectedCableData.base_price || "",
-          coil_length: selectedCableData.coil_length || "",
-          category_name: selectedCableData.category?.name || "",
-          category_code: selectedCableData.category?.code || "",
-        });
-
-        // Set category to match
-        const catObj = selectedCableData.category || dbCategories.find(c => String(c.id) === String(selectedCableData.category_id));
-        if (catObj) {
-          setSelectedCategory(catObj.name);
-          setIsManualCategory(false);
-          setNewProduct(prev => ({
-            ...prev,
-            category_name: catObj.name,
-            category_code: catObj.code || ""
-          }));
-        }
-
-        // Populate priceFields using core_type_id as keys
-        const matrixFields = {};
-        const matrixPrices = {};
-        const coreTypeIds = [];
-        
-        if (Array.isArray(selectedCableData.price_matrix)) {
-          selectedCableData.price_matrix.forEach(item => {
-            const ctId = String(item.core_type_id);
-            matrixFields[ctId] = {
-              price: item.price,
-              coil_length: item.coil_length
-            };
-            matrixPrices[ctId] = {
-              price: item.price,
-              coil_length: item.coil_length || selectedCableData.coil_length || ""
-            };
-            coreTypeIds.push(ctId);
-          });
-        }
-        setPriceFields(matrixFields);
-        setCorePrices(matrixPrices);
-        setSelectedCoreTypeIds(coreTypeIds);
-      } else if (cableData[selectedCategory]) {
-        // Handle static categories
-        if (
-          selectedCategory === "DC Solar Flexible Photovoltic UV-Resistant Cable"
-        ) {
-          setPriceFields({
-            plainPrice: selectedCableData.plainPrice || 0,
-            tinnedPrice: selectedCableData.tinnedPrice || 0,
-          });
-        } else if (
-          selectedCategory === "General cables" ||
-          selectedCategory === "Flexible Cables BS 6500 IEC 60228"
-        ) {
-          setPriceFields(selectedCableData.prices || {});
-        } else if (
-          selectedCategory === "POWER CABLES" ||
-          selectedCategory === "ALUMINIUM CABLES"
-        ) {
-          setPriceFields(selectedCableData.prices || {});
-        } else {
-          setPriceFields({ price: selectedCableData.price || 0 });
-        }
-      }
-    }
+  // ─────────────────────────────────────────
+  // Core entries helpers
+  // ─────────────────────────────────────────
+  const addCoreEntry = () => {
+    const trimmed = newCoreName.trim();
+    if (!trimmed) return;
+    setCoreEntries((prev) => [
+      ...prev,
+      { localId: uid(), name: trimmed, price: "", coil_length: "" },
+    ]);
+    setNewCoreName("");
+    setShowAddCore(false);
   };
 
-  // Handle price field change
-  const handlePriceChange = (field, value) => {
-    const val = value ? parseFloat(value) : 0;
-    
-    // Check if we are editing a database product or a static one
-    const cableList = getCableList();
-    const currentCable = cableList.find(c => String(c.id) === String(selectedCable));
-    
-    if (currentCable && currentCable.id) {
-      setPriceFields((prev) => ({
-        ...prev,
-        [field]: {
-          ...(prev[field] || {}),
-          price: val,
-          coil_length: prev[field]?.coil_length || 0,
-        },
-      }));
-    } else {
-      setPriceFields((prev) => ({
-        ...prev,
-        [field]: val,
-      }));
-    }
-  };
+  const removeCoreEntry = (localId) =>
+    setCoreEntries((prev) => prev.filter((e) => e.localId !== localId));
 
-  // variant type change handler
+  const updateCoreEntry = (localId, field, value) =>
+    setCoreEntries((prev) =>
+      prev.map((e) => (e.localId === localId ? { ...e, [field]: value } : e))
+    );
+
+  // ─────────────────────────────────────────
+  // Variant helpers
+  // ─────────────────────────────────────────
   const handleVariantTypeChange = async (value) => {
     setSelectedVariantType(value);
     setSelectedVariantOption("");
     setVariantOptions([]);
-
     if (!value) return;
-
     try {
       const res = await getVariantOptions();
       const opts =
         res.data?.data ||
         res.data?.variant_options ||
         (Array.isArray(res.data) ? res.data : []);
-      // filter by matching type id
-      let filtered = opts.filter((opt) => {
-        if (opt.variant_type) {
-          return String(opt.variant_type.id) === String(value);
-        }
-        if (opt.variant_type_id) {
-          return String(opt.variant_type_id) === String(value);
-        }
-        return false;
-      });
-
-      // Static list of standard colors for wires
-      const standardColors = [
-        { id: "black", name: "Black" },
-        { id: "red", name: "Red" },
-        { id: "blue", name: "Blue" },
-        { id: "yellow", name: "Yellow" },
-        { id: "green", name: "Green" },
-        { id: "white", name: "White" },
-        { id: "grey", name: "Grey" },
-        { id: "yellow_green", name: "Yellow/Green" },
-        { id: "brown", name: "Brown" },
-      ];
-
-      // Use standard colors if the selected type is color-related
+      const filtered = opts.filter((opt) =>
+        opt.variant_type
+          ? String(opt.variant_type.id) === String(value)
+          : String(opt.variant_type_id) === String(value)
+      );
       const selectedTypeObj = variantTypes.find(
-        (vt) => String(vt.id) === String(value) || vt.name === value,
+        (vt) => String(vt.id) === String(value) || vt.name === value
       );
       if (selectedTypeObj?.name?.toLowerCase().includes("color")) {
-        filtered = standardColors;
+        setVariantOptions([
+          { id: "black", name: "Black" },
+          { id: "red", name: "Red" },
+          { id: "blue", name: "Blue" },
+          { id: "yellow", name: "Yellow" },
+          { id: "green", name: "Green" },
+          { id: "white", name: "White" },
+          { id: "grey", name: "Grey" },
+          { id: "yellow_green", name: "Yellow/Green" },
+          { id: "brown", name: "Brown" },
+        ]);
+      } else {
+        setVariantOptions(filtered);
       }
-      setVariantOptions(filtered);
     } catch (err) {
       console.error("Error fetching variant options:", err);
     }
   };
 
-  const handleVariantOptionChange = (value) => {
-    setSelectedVariantOption(value);
+  // ─────────────────────────────────────────
+  // Cable select (Edit mode)
+  // ─────────────────────────────────────────
+  const handleCableSelect = async (productId) => {
+    setSelectedCable(productId);
+    const p = allProducts.find((x) => String(x.id) === String(productId));
+    if (!p) return;
+
+    setNewProduct({
+      name: p.name || "",
+      description: p.description || "",
+      size: p.size || "",
+      construction: p.construction || "",
+      material: p.material || "",
+      gauge: p.gauge || "",
+      voltage_rating: p.voltage_rating || "",
+      uom: p.uom || "MTR",
+      base_price: p.base_price || "",
+      coil_length: p.coil_length || "",
+      category_name: p.category?.name || dbCategories.find((c) => String(c.id) === String(p.category_id))?.name || "",
+      category_code: p.category?.code || "",
+    });
+
+    // Set category
+    const catObj = p.category || dbCategories.find((c) => String(c.id) === String(p.category_id));
+    if (catObj) setSelectedCategory(catObj.name);
+
+    // Fetch price matrix separately
+    try {
+      const res = await getProductPriceMatrix(productId);
+      const coreTypes = res.data?.core_types || [];
+      const prices = res.data?.prices || {};
+
+      // Only include core types that have a price set (exists: true)
+      const entries = coreTypes
+        .filter((ct) => prices[ct.code]?.exists === true)
+        .map((ct) => ({
+          localId: uid(),
+          name: ct.display_name || ct.name,
+          dbId: String(ct.id),
+          price: String(prices[ct.code]?.price || ""),
+          coil_length: String(prices[ct.code]?.coil_length || p.coil_length || ""),
+        }));
+
+      setCoreEntries(entries);
+    } catch (err) {
+      console.error("Failed to fetch price matrix:", err);
+      setCoreEntries([]);
+    }
   };
 
-  // Handle save (both edit and add)
-  // Handle save
+  // ─────────────────────────────────────────
+  // Resolve or create a DB core_type by name
+  // Match ONLY by exact name — never by generated code.
+  // This prevents "2/C PVC" reusing the seeded "2_core" record.
+  // Every distinct label gets its own DB record so the dropdown
+  // in CreateQuotation shows exactly what was typed here.
+  // ─────────────────────────────────────────
+  const resolveOrCreateCoreType = async (name) => {
+    const nameLower = name.trim().toLowerCase();
+    const existing = dbCoreTypes.find(
+      (ct) =>
+        ct.name?.trim().toLowerCase() === nameLower ||
+        ct.display_name?.trim().toLowerCase() === nameLower
+    );
+    if (existing) return existing.id;
+
+    // Always create a new record with a unique code so the exact name is preserved
+    const uniqueCode = generateCode(name) + "_" + Date.now();
+    try {
+      const res = await createCoreType({
+        name: name.trim(),
+        display_name: name.trim(),
+        code: uniqueCode,
+      });
+      const created = res.data?.data || res.data?.core_type || res.data;
+      // Refresh local cache so subsequent lookups find the new record
+      await fetchData();
+      return created?.id || null;
+    } catch (err) {
+      console.warn("Core type creation failed:", err);
+      // Race condition: someone else created it — re-fetch and match by exact name
+      const freshRes = await getCoreTypes();
+      const fresh = freshRes.data?.data || freshRes.data?.core_types || (Array.isArray(freshRes.data) ? freshRes.data : []);
+      setDbCoreTypes(fresh);
+      const nameLower = name.trim().toLowerCase();
+      const found = fresh.find(
+        (ct) =>
+          ct.name?.trim().toLowerCase() === nameLower ||
+          ct.display_name?.trim().toLowerCase() === nameLower
+      );
+      return found?.id || null;
+    }
+  };
+
+  // ─────────────────────────────────────────
+  // Resolve or create a DB category
+  // ─────────────────────────────────────────
+  const resolveOrCreateCategory = async (categoryName, categoryCode) => {
+    const inputCode = categoryCode
+      ? categoryCode.trim().replace(/\s+/g, "_")
+      : generateCode(categoryName);
+
+    const existing = dbCategories.find(
+      (c) =>
+        generateCode(c.name) === generateCode(categoryName) ||
+        (c.code && c.code === inputCode)
+    );
+    if (existing) return existing.id;
+
+    try {
+      const res = await createCategory({
+        name: categoryName,
+        display_name: categoryName,
+        code: inputCode || `cat_${Date.now()}`,
+      });
+      return (
+        res.data?.data?.id ||
+        res.data?.id ||
+        res.data?.category?.id ||
+        null
+      );
+    } catch (err) {
+      if (
+        err.response?.status === 422 &&
+        JSON.stringify(err.response.data).match(/taken|exists/i)
+      ) {
+        const fresh = await getCategories();
+        const cats =
+          fresh.data?.data ||
+          fresh.data?.categories ||
+          (Array.isArray(fresh.data) ? fresh.data : []);
+        setDbCategories(cats);
+        const found = cats.find(
+          (c) => generateCode(c.name) === inputCode || c.code === inputCode
+        );
+        if (found) return found.id;
+      }
+      throw err;
+    }
+  };
+
+  // ─────────────────────────────────────────
+  // Save
+  // ─────────────────────────────────────────
   const handleSave = async () => {
     if (mode === "add") {
       if (!newProduct.name || !newProduct.category_name) {
         alert("Product Name and Category Name are required");
         return;
       }
+      if (!newProduct.base_price || parseFloat(newProduct.base_price) <= 0) {
+        alert("Base Price is required before adding a product.");
+        return;
+      }
       setSubmitting(true);
       try {
-        let categoryId;
-        const manualCode = newProduct.category_code
-          ? newProduct.category_code.trim().replace(/\s+/g, "_")
-          : "";
-        const inputCode = manualCode || generateCode(newProduct.category_name);
-
-        const existingCat = dbCategories.find(
-          (c) =>
-            generateCode(c.name) === generateCode(newProduct.category_name) ||
-            (c.code && c.code === inputCode),
+        const categoryId = await resolveOrCreateCategory(
+          newProduct.category_name,
+          newProduct.category_code
         );
+        if (!categoryId) throw new Error("Could not determine Category ID");
 
-        if (existingCat) {
-          console.log("Found existing category:", existingCat);
-          categoryId = existingCat.id;
-        } else {
-          console.log(
-            "Creating new category:",
-            newProduct.category_name,
-            "with code:",
-            inputCode,
-          );
-          try {
-            const categoryRes = await createCategory({
-              name: newProduct.category_name,
-              display_name: newProduct.category_name,
-              code: inputCode,
-            });
-            console.log("Category creation response:", categoryRes.data);
-            categoryId =
-              categoryRes.data?.data?.id ||
-              categoryRes.data?.id ||
-              categoryRes.data?.category?.id ||
-              (typeof categoryRes.data === "number" ? categoryRes.data : null);
-          } catch (catErr) {
-            // If code is taken, it means it was created by someone else or name is slightly different
-            if (
-              catErr.response?.status === 422 &&
-              (JSON.stringify(catErr.response.data).includes("taken") ||
-                JSON.stringify(catErr.response.data).includes("exists"))
-            ) {
-              console.log("Category code taken, fetching updated list...");
-              // Refresh categories and try to find it
-              const freshCatRes = await getCategories();
-              if (freshCatRes.data && freshCatRes.data.success) {
-                const updatedCats = freshCatRes.data.data || [];
-                setDbCategories(updatedCats);
-                const foundAgain = updatedCats.find(
-                  (c) =>
-                    generateCode(c.name) === inputCode ||
-                    (c.code && c.code === inputCode),
-                );
-                if (foundAgain) {
-                  categoryId = foundAgain.id;
-                  console.log("Found category after refresh:", foundAgain);
-                }
-              }
-            }
-            if (!categoryId) throw catErr; // Re-throw if still not found
-          }
-        }
-
-        console.log("Resulting Category ID:", categoryId);
-        if (!categoryId) {
-          console.error("Failed to determine Category ID. Data available:", {
-            existingCat,
-            newProduct_category_name: newProduct.category_name,
-            dbCategories_sample: dbCategories.slice(0, 2),
-          });
-          throw new Error("Could not determine Category ID");
-        }
-
-        // 2. Create/Check Core Type if manual
-        if (isManualCore && newProduct.core_type) {
-          const coreCode = generateCode(newProduct.core_type);
-          const existingCore = dbCoreTypes.find(
-            (ct) =>
-              generateCode(ct.name) === coreCode ||
-              (ct.code && ct.code === coreCode),
-          );
-
-          if (!existingCore) {
-            try {
-              await createCoreType({
-                name: newProduct.core_type,
-                display_name: newProduct.core_type,
-                code: coreCode + "_" + Math.floor(Math.random() * 10000),
-              });
-            } catch (coreErr) {
-              console.warn(
-                "Core type creation failed (possibly code taken), skipping...",
-                coreErr,
-              );
-            }
-          }
-        }
-
-        // 3. Build price matrix from selected core prices
-        const priceMatrixEntries = Object.entries(corePrices)
-          .filter(([, val]) => val.price > 0)
-          .map(([coreId, val]) => ({
-            core_type_id: parseInt(coreId),
-            price: parseFloat(val.price) || 0,
-            coil_length: parseFloat(val.coil_length) || parseFloat(newProduct.coil_length) || 0,
-          }));
-
-        // Use the first selected core's price as base_price fallback
-        const fallbackBasePrice = priceMatrixEntries.length > 0
-          ? priceMatrixEntries[0].price
-          : (parseFloat(newProduct.base_price) || 0);
-
-        // 4. Create Product with price_matrix included
         const productData = {
           name: newProduct.name,
           display_name: newProduct.name,
           description: newProduct.description,
           category_id: categoryId,
           sub_category: selectedSubCategory,
-          core_type: selectedCoreTypeIds.length > 0
-            ? generateCode(dbCoreTypes.find(c => String(c.id) === String(selectedCoreTypeIds[0]))?.name || newProduct.core_type)
-            : generateCode(newProduct.core_type),
           size: newProduct.size,
           construction: newProduct.construction,
           material: newProduct.material,
@@ -1268,288 +419,272 @@ const ProductManagement = () => {
           formation: newProduct.gauge,
           voltage_rating: newProduct.voltage_rating,
           uom: newProduct.uom,
-          base_price: fallbackBasePrice,
+          base_price: parseFloat(newProduct.base_price) || 0,
           coil_length: parseFloat(newProduct.coil_length) || 0,
-          // Price matrix — per-core-type pricing
-          price_matrix: priceMatrixEntries.length > 0 ? priceMatrixEntries : null,
-          // include variant info if selected
           variant_type_id: selectedVariantType || undefined,
           variant_option_id: selectedVariantOption || undefined,
-          color:
-            variantTypes
-              .find(
-                (vt) =>
-                  String(vt.id) === String(selectedVariantType) ||
-                  vt.name === selectedVariantType,
-              )
-              ?.name?.toLowerCase()
-              .includes("color")
-              ? selectedVariantOption || undefined
-              : undefined,
+          color: variantTypes
+            .find(
+              (vt) =>
+                String(vt.id) === String(selectedVariantType) ||
+                vt.name === selectedVariantType
+            )
+            ?.name?.toLowerCase()
+            .includes("color")
+            ? selectedVariantOption || undefined
+            : undefined,
           is_active: true,
         };
 
-        console.log("Creating product with data:", productData);
-        const productRes = await createProduct(productData);
+        console.log("Creating product:", productData);
+        const res = await createProduct(productData);
+        const createdProduct = res.data?.product || res.data?.data || res.data;
+        const newProductId = createdProduct?.id;
 
-        const resData = productRes.data;
-        if (resData.success || resData.data?.success) {
-          alert("Product added successfully!");
-          handleReset();
+        // Check success: explicit flag, HTTP 2xx with an ID, or message containing "success"
+        const isSuccess =
+          res.data.success ||
+          res.data.data?.success ||
+          (res.status >= 200 && res.status < 300 && newProductId) ||
+          (res.data.message && res.data.message.toLowerCase().includes("success"));
+
+        if (isSuccess && newProductId) {
+          // Product saved — now offer core type entry
+          alert(`Product "${newProduct.name}" created successfully!`);
+          setJustCreatedProduct({
+            id: newProductId,
+            name: newProduct.name,
+            base_price: newProduct.base_price,
+          });
+          // Pre-fill first core entry with base_price so user can rename it
+          setCoreEntries([
+            {
+              localId: uid(),
+              name: "",
+              price: newProduct.base_price,
+              coil_length: newProduct.coil_length || "",
+            },
+          ]);
+          setShowPostCreateCoreTypes(true);
           fetchData();
-          setIsManualCore(false);
         } else {
           alert(
             "Failed to add product: " +
-              (resData.message || resData.data?.message || "Unknown error"),
+              (res.data.message || res.data.data?.message || "Unknown error")
           );
         }
-      } catch (error) {
-        console.error("Error in add flow:", error);
-        console.error("Full error response:", error.response?.data);
-
-        let errorMsg = error.message;
-        if (error.response?.data) {
-          const data = error.response.data;
-          if (data.message) {
-            errorMsg = data.message;
-          } else if (data.errors) {
-            // Flatten Laravel-style validation errors
-            errorMsg = Object.values(data.errors).flat().join(" ");
-          } else if (typeof data === "string") {
-            errorMsg = data;
-          }
+      } catch (err) {
+        console.error("Error in add flow:", err);
+        let msg = err.message;
+        if (err.response?.data) {
+          const d = err.response.data;
+          msg =
+            d.message ||
+            Object.values(d.errors || {}).flat().join(" ") ||
+            JSON.stringify(d);
         }
-
-        alert("Failed to process request: " + errorMsg);
+        alert("Failed to process request: " + msg);
       } finally {
         setSubmitting(false);
       }
       return;
     }
 
-    if (!selectedCable && mode === "edit") {
+    // ── Edit mode ──────────────────────────
+    if (!selectedCable) {
       alert("Please select a cable to edit");
       return;
     }
-
     setSubmitting(true);
     try {
-      if (mode === "edit") {
-        // Find the matching product to get its real ID
-        const selectedCableData = allProducts.find(p => String(p.id) === String(selectedCable));
+      const selectedCableData = allProducts.find(
+        (p) => String(p.id) === String(selectedCable)
+      );
+      if (!selectedCableData?.id) {
+        alert("Could not identify the database product to update.");
+        return;
+      }
 
-        if (!selectedCableData || !selectedCableData.id) {
-          alert("Could not identify the database product to update.");
-          setSubmitting(false);
+      let categoryId = selectedCableData.category_id;
+      const currentCatName =
+        selectedCableData.category?.name ||
+        dbCategories.find((c) => String(c.id) === String(selectedCableData.category_id))?.name;
+
+      if (newProduct.category_name && newProduct.category_name !== currentCatName) {
+        categoryId = await resolveOrCreateCategory(
+          newProduct.category_name,
+          newProduct.category_code
+        );
+      }
+
+      // Build price_matrix
+      const priceMatrixEntries = [];
+      for (const entry of coreEntries) {
+        if (!entry.name || !(parseFloat(entry.price) > 0)) continue;
+        const coreTypeId = entry.dbId || (await resolveOrCreateCoreType(entry.name));
+        if (!coreTypeId) {
+          alert(`Failed to resolve core type: ${entry.name}`);
           return;
         }
+        priceMatrixEntries.push({
+          core_type_id: parseInt(coreTypeId),
+          price: parseFloat(entry.price) || 0,
+          coil_length:
+            parseFloat(entry.coil_length) ||
+            parseFloat(newProduct.coil_length) ||
+            0,
+        });
+      }
 
-        // 1. Determine Category ID
-        let categoryId = selectedCableData.category_id;
-        
-        // Only try to find/create a category if the name was changed manually
-        if (newProduct.category_name && newProduct.category_name !== (selectedCableData.category?.name || dbCategories.find(c => String(c.id) === String(selectedCableData.category_id))?.name)) {
-          const manualCode = newProduct.category_code ? newProduct.category_code.trim().replace(/\s+/g, "_") : "";
-          const inputCode = manualCode || generateCode(newProduct.category_name);
+      const productData = {
+        name: newProduct.name,
+        display_name: newProduct.name,
+        description: newProduct.description,
+        category_id: categoryId,
+        sub_category: selectedSubCategory,
+        size: newProduct.size,
+        construction: newProduct.construction,
+        material: newProduct.material,
+        gauge: newProduct.gauge,
+        voltage_rating: newProduct.voltage_rating,
+        uom: newProduct.uom,
+        base_price:
+          priceMatrixEntries.length > 0
+            ? priceMatrixEntries[0].price
+            : parseFloat(newProduct.base_price) || 0,
+        coil_length: parseFloat(newProduct.coil_length) || 0,
+        price_matrix: priceMatrixEntries,
+      };
 
-          const existingCat = dbCategories.find(c => 
-            generateCode(c.name) === generateCode(newProduct.category_name) || (c.code && c.code === inputCode)
-          );
-
-          if (existingCat) {
-            categoryId = existingCat.id;
-          } else if (newProduct.category_name) {
-            try {
-              const categoryRes = await createCategory({
-                name: newProduct.category_name,
-                display_name: newProduct.category_name,
-                code: inputCode || generateCode(newProduct.category_name) || `cat_${Date.now()}`,
-              });
-              categoryId = categoryRes.data?.data?.id || categoryRes.data?.id || categoryRes.data?.category?.id;
-            } catch (catErr) {
-              console.warn("Could not create/select category, using existing:", categoryId);
-            }
-          }
-        }
-
-        // 2. Build price matrix
-        const priceMatrixEntries = Object.entries(corePrices)
-          .filter(([, val]) => (parseFloat(val.price) || 0) > 0)
-          .map(([coreId, val]) => ({
-            core_type_id: parseInt(coreId),
-            price: parseFloat(val.price) || 0,
-            coil_length: parseFloat(val.coil_length) || parseFloat(newProduct.coil_length) || 0,
-          }));
-
-        // 3. Update Product with full metadata
-        const productData = {
-          name: newProduct.name,
-          display_name: newProduct.name,
-          description: newProduct.description,
-          category_id: categoryId,
-          sub_category: selectedSubCategory,
-          size: newProduct.size,
-          construction: newProduct.construction,
-          material: newProduct.material,
-          gauge: newProduct.gauge,
-          voltage_rating: newProduct.voltage_rating,
-          uom: newProduct.uom,
-          base_price: priceMatrixEntries.length > 0 ? priceMatrixEntries[0].price : (parseFloat(newProduct.base_price) || 0),
-          coil_length: parseFloat(newProduct.coil_length) || 0,
-          price_matrix: priceMatrixEntries
-        };
-
-        console.log("Updating product:", selectedCableData.id, productData);
-
-        const res = await updateProduct(selectedCableData.id, productData);
-        if (res.data.success) {
-          alert("Product updated successfully in database!");
-          fetchData(); // Refresh list
-          handleReset(); // Clear selection and form
-        } else {
-          alert("Failed to update product: " + (res.data.message || "Unknown error"));
-        }
+      console.log("Updating product:", selectedCableData.id, productData);
+      const res = await updateProduct(selectedCableData.id, productData);
+      if (res.data.success) {
+        alert("Product updated successfully!");
+        fetchData();
+        handleReset();
+      } else {
+        alert("Failed to update: " + (res.data.message || "Unknown error"));
       }
     } catch (err) {
-      console.error("Error saving data:", err);
+      console.error("Error saving:", err);
       alert("Error: " + (err.response?.data?.message || err.message));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleCreateCoreType = async () => {
-    if (!newProduct.core_type || !newProduct.core_type.trim()) {
-      alert("Please enter a core type name");
+  // ─────────────────────────────────────────
+  // Delete
+  // ─────────────────────────────────────────
+  const handleDeleteProduct = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this product?")) return;
+    try {
+      setSubmitting(true);
+      await deleteProduct(id);
+      alert("Product deleted successfully");
+      fetchData();
+    } catch (err) {
+      console.error("Delete Error:", err);
+      alert("Failed to delete: " + (err.response?.data?.message || err.message));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+    // ─────────────────────────────────────────
+  // Save price matrix against already-created product
+  // ─────────────────────────────────────────
+  const handlePostCreatePriceMatrix = async () => {
+    console.log("DEBUG justCreatedProduct:", justCreatedProduct);  // ← ADD
+    console.log("DEBUG coreEntries:", coreEntries);                // ← ADD
+    if (!justCreatedProduct?.id) return;
+
+    const validEntries = coreEntries.filter(
+      (e) => e.name.trim() && parseFloat(e.price) > 0
+    );
+    if (validEntries.length === 0) {
+      alert("Please add at least one core type with a name and price.");
       return;
     }
 
+    setPostCreateSubmitting(true);
     try {
-      setSubmitting(true);
-      const res = await createCoreType({
-        name: newProduct.core_type.trim(),
-        display_name: newProduct.core_type.trim(),
-        code: generateCode(newProduct.core_type.trim())
+      const priceMatrixEntries = [];
+      for (const entry of validEntries) {
+        const coreTypeId =
+          entry.dbId || (await resolveOrCreateCoreType(entry.name));
+        if (!coreTypeId) {
+          alert(`Failed to resolve core type: ${entry.name}`);
+          return;
+        }
+        priceMatrixEntries.push({
+          core_type_id: parseInt(coreTypeId),
+          price: parseFloat(entry.price) || 0,
+          coil_length:
+            parseFloat(entry.coil_length) ||
+            parseFloat(newProduct.coil_length) ||
+            0,
+        });
+      }
+      ////////////
+      await setProductPriceMatrix(justCreatedProduct.id, { prices: priceMatrixEntries });
+
+      // Sync first core type name and price back to the product
+      const firstEntry = validEntries[0];
+      await updateProduct(justCreatedProduct.id, {
+        name: newProduct.name,
+        description: newProduct.description,
+        size: newProduct.size,
+        construction: newProduct.construction,
+        material: newProduct.material,
+        gauge: newProduct.gauge,
+        voltage_rating: newProduct.voltage_rating,
+        uom: newProduct.uom,
+        coil_length: parseFloat(newProduct.coil_length) || 0,
+        core_type: firstEntry.name,
+        base_price: parseFloat(firstEntry.price),
       });
 
-      if (res.data.success || res.data.data?.success) {
-        const newCore = res.data.data || res.data.core_type;
-        // Refresh the list of core types
-        await fetchData(); 
-        // Automatically select the new core type
-        setSelectedCoreTypeIds(prev => [...prev, String(newCore.id)]);
-        // Clear the input
-        handleProductFieldChange("core_type", "");
-      } else {
-        alert("Failed to create core type: " + (res.data.message || res.data.data?.message || "Unknown error"));
-      }
+      alert("Core types saved successfully!");
+      handleReset();
+      fetchData();
     } catch (err) {
-      console.error("Error creating core type:", err);
-      alert("Error: " + (err.response?.data?.message || err.message));
+      console.error("Price matrix error:", err);
+      alert(
+        "Failed to save core types: " +
+          (err.response?.data?.message || err.message)
+      );
     } finally {
-      setSubmitting(false);
+      setPostCreateSubmitting(false);
     }
   };
 
-  // Reset form
-  const handleReset = () => {
-    // Keep current mode but reset selection and form
-    setSelectedCategory("");
-    setSelectedCable("");
-    setSelectedSubCategory("");
-    setPriceFields({});
-    setNewProduct({
-      name: "",
-      description: "",
-      size: "",
-      construction: "",
-      core_type: "",
-      material: "",
-      gauge: "",
-      voltage_rating: "",
-      uom: "MTR",
-      base_price: "",
-      coil_length: "",
-      category_name: "",
-      category_code: "",
+  // ─────────────────────────────────────────
+  // Filtered products for table
+  // ─────────────────────────────────────────
+  const filteredProducts = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return allProducts.filter((p) => {
+      const catName =
+        p.category?.name ||
+        dbCategories.find((c) => String(c.id) === String(p.category_id))?.name ||
+        "";
+      return (
+        p.name?.toLowerCase().includes(q) || catName.toLowerCase().includes(q)
+      );
     });
-    setIsManualCore(false);
-    setIsManualCategory(false);
-    setSelectedVariantType("");
-    setSelectedVariantOption("");
-    setVariantOptions([]);
-    setCorePrices({});
-    setSelectedCoreTypeIds([]);
-  };
+  }, [allProducts, dbCategories, searchQuery]);
 
-  // Get price fields configuration based on category
-  const getPriceFieldsConfig = () => {
-    switch (selectedCategory) {
-      case "Imperial Sizes BS-2004":
-      case "Co-axial Cables(RG-Type)":
-      case "Telephone & Intercom Cables":
-        return [{ label: "Price (Rs.)", field: "price" }];
-
-      case "DC Solar Flexible Photovoltic UV-Resistant Cable":
-        return [
-          { label: "Plain Copper Price (Rs.)", field: "plainPrice" },
-          { label: "Tinned Copper Price (Rs.)", field: "tinnedPrice" },
-        ];
-
-      case "General cables":
-        return [
-          { label: "Single Core Price (Rs.)", field: "singleCore" },
-          { label: "2/Core Flat Price (Rs.)", field: "twoCoreFlat" },
-          { label: "3/Core Round Price (Rs.)", field: "threeCoreRound" },
-          { label: "4/Core Round Price (Rs.)", field: "fourCoreRound" },
-        ];
-
-      case "Flexible Cables BS 6500 IEC 60228":
-        return [
-          { label: "Single Core Price (Rs.)", field: "singleCore" },
-          { label: "2/Core Round Price (Rs.)", field: "twoCoreRound" },
-          { label: "3/Core Round Price (Rs.)", field: "threeCoreRound" },
-          { label: "4/Core Round Price (Rs.)", field: "fourCoreRound" },
-        ];
-
-      case "POWER CABLES":
-        return [
-          { label: "Single/Core PVC (Rs.)", field: "single" },
-          { label: "S/C PVC/PVC (Rs.)", field: "sc" },
-          { label: "3/C PVC/PVC (Rs.)", field: "three" },
-          { label: "3.5/C PVC/PVC (Rs.)", field: "threeHalf" },
-          { label: "4/C PVC/PVC (Rs.)", field: "four" },
-        ];
-
-      case "ALUMINIUM CABLES":
-        return [
-          { label: "Single (Rs.)", field: "single" },
-          { label: "2/C (Rs.)", field: "two" },
-          { label: "3/C (Rs.)", field: "three" },
-          { label: "3.5/C (Rs.)", field: "threeHalf" },
-          { label: "4/C (Rs.)", field: "four" },
-        ];
-
-      default:
-        // For database products, we generate fields based on the price matrix contents
-        if (selectedCable) {
-          const cableList = getCableList();
-          const p = cableList.find(c => String(c.id) === String(selectedCable) || (c.name || c.description || c.size) === selectedCable);
-          if (p && Array.isArray(p.price_matrix)) {
-            return p.price_matrix.map(pm => {
-              const ct = dbCoreTypes.find(ct => String(ct.id) === String(pm.core_type_id));
-              return {
-                label: (ct?.display_name || ct?.name || `Core #${pm.core_type_id}`) + " Price (Rs.)",
-                field: String(pm.core_type_id),
-                isMatrix: true
-              };
-            });
-          }
-        }
-        return [];
-    }
-  };
+  // ─────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────
+  const isColorVariant = variantTypes
+    .find(
+      (vt) =>
+        String(vt.id) === String(selectedVariantType) ||
+        vt.name === selectedVariantType
+    )
+    ?.name?.toLowerCase()
+    .includes("color");
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 md:p-6">
@@ -1560,25 +695,19 @@ const ProductManagement = () => {
           <p className="text-gray-400">
             Edit existing cable prices or add new cables to the database
           </p>
-
-          {/* Mode Toggle */}
           <div className="flex gap-4 mt-6">
             <button
-              onClick={() => setMode("edit")}
+              onClick={() => { setMode("edit"); handleReset(); }}
               className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                mode === "edit"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                mode === "edit" ? "bg-blue-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
               }`}
             >
               Edit Existing Cable
             </button>
             <button
-              onClick={() => setMode("add")}
+              onClick={() => { setMode("add"); handleReset(); }}
               className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-                mode === "add"
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                mode === "add" ? "bg-green-600 text-white" : "bg-gray-700 text-gray-300 hover:bg-gray-600"
               }`}
             >
               Add New Cable
@@ -1593,49 +722,40 @@ const ProductManagement = () => {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Category Input/Selection */}
+
+            {/* ── Category ── */}
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                {mode === "add" ? "Category Name *" : "Select Cable Category *"}
+                {mode === "add" ? "Category Name *" : "Select Cable Category"}
               </label>
               {mode === "add" ? (
                 !isManualCategory ? (
                   <select
                     value={newProduct.category_name}
                     onChange={(e) => {
-                      if (e.target.value === "MANUAL") {
+                      if (e.target.value === "__MANUAL__") {
                         setIsManualCategory(true);
                         handleProductFieldChange("category_name", "");
                         handleProductFieldChange("category_code", "");
                       } else {
-                        handleProductFieldChange(
-                          "category_name",
-                          e.target.value,
-                        );
+                        handleProductFieldChange("category_name", e.target.value);
                       }
                     }}
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select a category</option>
                     {dbCategories.map((cat) => (
-                      <option key={cat.id} value={cat.name}>
-                        {cat.name}
-                      </option>
+                      <option key={cat.id} value={cat.name}>{cat.name}</option>
                     ))}
-                    <option value="MANUAL">+ Add New Category</option>
+                    <option value="__MANUAL__">+ Add New Category</option>
                   </select>
                 ) : (
                   <div className="relative">
                     <input
                       type="text"
                       value={newProduct.category_name}
-                      onChange={(e) =>
-                        handleProductFieldChange(
-                          "category_name",
-                          e.target.value,
-                        )
-                      }
-                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      onChange={(e) => handleProductFieldChange("category_name", e.target.value)}
+                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                       placeholder="e.g., Building Wires"
                     />
                     <button
@@ -1651,19 +771,17 @@ const ProductManagement = () => {
                 <select
                   value={selectedCategory}
                   onChange={(e) => handleCategoryChange(e.target.value)}
-                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Select a category</option>
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
+                  <option value="">All Categories</option>
+                  {dbCategories.map((c) => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
                   ))}
                 </select>
               )}
             </div>
 
-            {/* Category Code (Add Mode) - Only show if manual */}
+            {/* Category Code (manual add only) */}
             {mode === "add" && isManualCategory && (
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
@@ -1672,38 +790,14 @@ const ProductManagement = () => {
                 <input
                   type="text"
                   value={newProduct.category_code}
-                  onChange={(e) =>
-                    handleProductFieldChange("category_code", e.target.value)
-                  }
-                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onChange={(e) => handleProductFieldChange("category_code", e.target.value)}
+                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                   placeholder="e.g., BW_001"
                 />
               </div>
             )}
 
-
-
-            {/* Sub-category for specific categories */}
-            {(selectedCategory.includes("POWER CABLES") ||
-              selectedCategory.includes("ALUMINIUM CABLES") ||
-              selectedCategory.includes("Power Cables") ||
-              selectedCategory.includes("Aluminium Cables")) && (
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Cable Type *
-                </label>
-                <select
-                  value={selectedSubCategory}
-                  onChange={(e) => setSelectedSubCategory(e.target.value)}
-                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="UN-ARMOURED CABLES">UN-ARMOURED CABLES</option>
-                  <option value="ARMOURED CABLES">ARMOURED CABLES</option>
-                </select>
-              </div>
-            )}
-
-            {/* Product Table (Edit Mode) */}
+            {/* ── Products Table (Edit Mode) ── */}
             {mode === "edit" && (
               <div className="md:col-span-2 space-y-4">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -1728,7 +822,7 @@ const ProductManagement = () => {
                       <tr className="bg-gray-700/50 border-b border-gray-700 text-gray-400 uppercase tracking-wider">
                         <th className="px-3 py-3 font-semibold">Category</th>
                         <th className="px-3 py-3 font-semibold">Product Name</th>
-                        <th className="px-3 py-3 font-semibold">Core Types / Detail</th>
+                        <th className="px-3 py-3 font-semibold">Core Types</th>
                         <th className="px-3 py-3 font-semibold">Material</th>
                         <th className="px-3 py-3 font-semibold">Construction</th>
                         <th className="px-3 py-3 font-semibold">Voltage</th>
@@ -1737,84 +831,89 @@ const ProductManagement = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-700">
-                      {allProducts
-                        .filter(p => {
-                          const catName = p.category?.name || dbCategories.find(c => String(c.id) === String(p.category_id))?.name || "";
-                          const search = searchQuery.toLowerCase();
-                          return p.name?.toLowerCase().includes(search) || 
-                                 catName.toLowerCase().includes(search);
-                        })
-                        .map((p) => {
-                          const hasMatrix = p.price_matrix && Array.isArray(p.price_matrix) && p.price_matrix.length > 0;
-                          const catName = p.category?.name || dbCategories.find(c => String(c.id) === String(p.category_id))?.name || "N/A";
-                          return (
-                            <tr key={p.id} className={`hover:bg-gray-700/30 transition-colors ${String(selectedCable) === String(p.id) ? 'bg-blue-500/10' : ''}`}>
-                              <td className="px-3 py-3 text-gray-400">{catName}</td>
-                              <td className="px-3 py-3 font-medium text-gray-200">{p.name}</td>
-                              <td className="px-3 py-3 text-gray-400">
-                                {hasMatrix ? (
-                                  <div className="flex flex-wrap gap-1">
-                                    {p.price_matrix.map((pm, idx) => {
-                                      const coreType = dbCoreTypes.find(ct => String(ct.id) === String(pm.core_type_id));
-                                      return (
-                                        <span key={idx} className="bg-gray-700 px-1.5 py-0.5 rounded text-[10px]">
-                                          {coreType?.name || coreType?.display_name || pm.core_type_id}
-                                        </span>
-                                      );
-                                    })}
-                                  </div>
-                                ) : (
-                                  p.core_type || "N/A"
-                                )}
-                              </td>
-                              <td className="px-3 py-3 text-gray-400">{p.material || "N/A"}</td>
-                              <td className="px-3 py-3 text-gray-400">{p.construction || "N/A"}</td>
-                              <td className="px-3 py-3 text-gray-400">{p.voltage_rating || "N/A"}</td>
-                              <td className="px-3 py-3 text-right">
-                                {hasMatrix ? (
-                                  <div className="space-y-1">
-                                    {p.price_matrix.map((pm, idx) => {
-                                       const coreType = dbCoreTypes.find(ct => String(ct.id) === String(pm.core_type_id));
-                                       return (
-                                         <div key={idx} className="whitespace-nowrap">
-                                           <span className="text-[10px] text-gray-500 mr-1">{coreType?.name || pm.core_type_id}:</span>
-                                           <span className="text-gray-200">{(parseFloat(pm.price) || 0).toLocaleString()}</span>
-                                         </div>
-                                       );
-                                    })}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-200 font-semibold">{(parseFloat(p.base_price) || 0).toLocaleString()}</span>
-                                )}
-                              </td>
-                              <td className="px-3 py-3 text-center">
-                                <div className="flex justify-center gap-2">
-                                  <button
-                                    onClick={() => handleCableSelect(String(p.id))}
-                                    className={`p-1.5 rounded-lg transition-colors ${String(selectedCable) === String(p.id) ? 'bg-blue-600 text-white' : 'bg-gray-700 text-blue-400 hover:bg-gray-600'}`}
-                                    title="Edit Product"
-                                  >
-                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteProduct(p.id)}
-                                    className="p-1.5 bg-gray-700 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
-                                    title="Delete Product"
-                                  >
-                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                  </button>
+                      {filteredProducts.map((p) => {
+                        const matrix = productPriceMatrices[p.id] || [];
+                        const hasMatrix = matrix.length > 0;
+                        const catName =
+                          p.category?.name ||
+                          dbCategories.find((c) => String(c.id) === String(p.category_id))?.name ||
+                          "N/A";
+                        const isSelected = String(selectedCable) === String(p.id);
+                        return (
+                          <tr
+                            key={p.id}
+                            className={`hover:bg-gray-700/30 transition-colors ${isSelected ? "bg-blue-500/10" : ""}`}
+                          >
+                            <td className="px-3 py-3 text-gray-400">{catName}</td>
+                            <td className="px-3 py-3 font-medium text-gray-200">{p.name}</td>
+                            <td className="px-3 py-3 text-gray-400">
+                              {hasMatrix ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {matrix.map((m, idx) => (
+                                    <span key={idx} className="bg-gray-700 px-1.5 py-0.5 rounded text-[10px]">
+                                      {m.name}
+                                    </span>
+                                  ))}
                                 </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      {allProducts.length === 0 && (
+                              ) : (
+                                p.core_type || "N/A"
+                              )}
+                            </td>
+                            <td className="px-3 py-3 text-gray-400">{p.material || "N/A"}</td>
+                            <td className="px-3 py-3 text-gray-400">{p.construction || "N/A"}</td>
+                            <td className="px-3 py-3 text-gray-400">{p.voltage_rating || "N/A"}</td>
+                            <td className="px-3 py-3 text-right">
+                              {hasMatrix ? (
+                                <div className="space-y-1">
+                                  {matrix.map((m, idx) => (
+                                    <div key={idx} className="whitespace-nowrap">
+                                      <span className="text-[10px] text-gray-500 mr-1">{m.name}:</span>
+                                      <span className="text-gray-200">
+                                        {(parseFloat(m.price) || 0).toLocaleString()}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-gray-200 font-semibold">
+                                  {(parseFloat(p.base_price) || 0).toLocaleString()}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-3 text-center">
+                              <div className="flex justify-center gap-2">
+                                <button
+                                  onClick={() => handleCableSelect(String(p.id))}
+                                  className={`p-1.5 rounded-lg transition-colors ${
+                                    isSelected
+                                      ? "bg-blue-600 text-white"
+                                      : "bg-gray-700 text-blue-400 hover:bg-gray-600"
+                                  }`}
+                                  title="Edit Product"
+                                >
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteProduct(p.id)}
+                                  className="p-1.5 bg-gray-700 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                                  title="Delete Product"
+                                >
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {filteredProducts.length === 0 && (
                         <tr>
-                          <td colSpan="8" className="px-4 py-8 text-center text-gray-500 italic">No products found in database.</td>
+                          <td colSpan="8" className="px-4 py-8 text-center text-gray-500 italic">
+                            No products found in database.
+                          </td>
                         </tr>
                       )}
                     </tbody>
@@ -1823,7 +922,7 @@ const ProductManagement = () => {
               </div>
             )}
 
-            {/* Add Mode or Edit Mode with Selection - Full Product Form */}
+            {/* ── Product Detail Form (Add or Edit with selection) ── */}
             {(mode === "add" || (mode === "edit" && selectedCable)) && (
               <>
                 <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-700">
@@ -1831,129 +930,98 @@ const ProductManagement = () => {
                     {mode === "edit" ? "Edit Product Details" : "New Product Details"}
                   </h3>
                 </div>
+
                 {/* Product Name */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Product Name *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Product Name *</label>
                   <input
                     type="text"
                     value={newProduct.name}
-                    onChange={(e) =>
-                      handleProductFieldChange("name", e.target.value)
-                    }
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => handleProductFieldChange("name", e.target.value)}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., 1.0mm² Solid Building Wire"
                   />
                 </div>
 
                 {/* Description */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Description
-                  </label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
                   <input
                     type="text"
                     value={newProduct.description}
-                    onChange={(e) =>
-                      handleProductFieldChange("description", e.target.value)
-                    }
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => handleProductFieldChange("description", e.target.value)}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., 1.0mm² Solid Copper Building Wire 450/750V"
                   />
                 </div>
 
                 {/* Size */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Size
-                  </label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Size</label>
                   <input
                     type="text"
                     value={newProduct.size}
-                    onChange={(e) =>
-                      handleProductFieldChange("size", e.target.value)
-                    }
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => handleProductFieldChange("size", e.target.value)}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., 1.0mm²"
                   />
                 </div>
 
                 {/* Construction */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Construction
-                  </label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Construction</label>
                   <input
                     type="text"
                     value={newProduct.construction}
-                    onChange={(e) =>
-                      handleProductFieldChange("construction", e.target.value)
-                    }
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => handleProductFieldChange("construction", e.target.value)}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., Solid or Stranded"
                   />
                 </div>
 
                 {/* Material */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Material
-                  </label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Material</label>
                   <input
                     type="text"
                     value={newProduct.material}
-                    onChange={(e) =>
-                      handleProductFieldChange("material", e.target.value)
-                    }
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => handleProductFieldChange("material", e.target.value)}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., Copper/PVC"
                   />
                 </div>
 
                 {/* Gauge */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Gauge
-                  </label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Gauge</label>
                   <input
                     type="text"
                     value={newProduct.gauge}
-                    onChange={(e) =>
-                      handleProductFieldChange("gauge", e.target.value)
-                    }
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => handleProductFieldChange("gauge", e.target.value)}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., 1/1.13 mm"
                   />
                 </div>
 
                 {/* Voltage Rating */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Voltage Rating
-                  </label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Voltage Rating</label>
                   <input
                     type="text"
                     value={newProduct.voltage_rating}
-                    onChange={(e) =>
-                      handleProductFieldChange("voltage_rating", e.target.value)
-                    }
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => handleProductFieldChange("voltage_rating", e.target.value)}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., 450/750V"
                   />
                 </div>
 
-                {/* UOM (Unit of Measure) */}
+                {/* UOM */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Unit of Measure *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Unit of Measure *</label>
                   <select
                     value={newProduct.uom}
-                    onChange={(e) =>
-                      handleProductFieldChange("uom", e.target.value)
-                    }
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => handleProductFieldChange("uom", e.target.value)}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="MTR">MTR (Meter)</option>
                     <option value="RFT">RFT (Running Foot)</option>
@@ -1961,318 +1029,222 @@ const ProductManagement = () => {
                   </select>
                 </div>
 
-                {/* Variant type dropdown */}
+                {/* Variant Type */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Variant Type
-                  </label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Variant Type</label>
                   <select
                     value={selectedVariantType}
                     onChange={(e) => handleVariantTypeChange(e.target.value)}
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">None</option>
-                    {Array.isArray(variantTypes) &&
-                      variantTypes.map((vt) => (
-                        <option key={vt.id || vt.name} value={vt.id || vt.name}>
-                          {vt.name}
-                        </option>
-                      ))}
+                    {variantTypes.map((vt) => (
+                      <option key={vt.id || vt.name} value={vt.id || vt.name}>
+                        {vt.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
-                {/* Variant option (color) - only show if color type selected */}
-                {selectedVariantType &&
-                  variantTypes
-                    .find(
-                      (vt) =>
-                        String(vt.id) === String(selectedVariantType) ||
-                        vt.name === selectedVariantType,
-                    )
-                    ?.name?.toLowerCase()
-                    .includes("color") && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Select Color
-                      </label>
-                      <select
-                        value={selectedVariantOption}
-                        onChange={(e) =>
-                          handleVariantOptionChange(e.target.value)
-                        }
-                        className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Select color</option>
-                        {Array.isArray(variantOptions) &&
-                          variantOptions.map((opt) => (
-                            <option
-                              key={opt.id || opt.name}
-                              value={opt.id || opt.name}
-                            >
-                              {opt.name}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                  )}
+                {/* Variant Option (color) */}
+                {selectedVariantType && isColorVariant && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Select Color</label>
+                    <select
+                      value={selectedVariantOption}
+                      onChange={(e) => setSelectedVariantOption(e.target.value)}
+                      className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select color</option>
+                      {variantOptions.map((opt) => (
+                        <option key={opt.id || opt.name} value={opt.id || opt.name}>
+                          {opt.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
-                {/* Coil Length (shared across all cores) */}
+                {/* Coil Length */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Coil Length (meters)
-                  </label>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Coil Length (meters)</label>
                   <input
                     type="number"
                     min="0"
                     value={newProduct.coil_length}
-                    onChange={(e) =>
-                      handleProductFieldChange("coil_length", e.target.value)
-                    }
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    onChange={(e) => handleProductFieldChange("coil_length", e.target.value)}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., 90"
                   />
                 </div>
 
-                {/* Core Type - Multi-select Checkboxes (Add Mode) */}
-                {dbCoreTypes.length > 0 && (
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Select Core Types (Optional)
-                    </label>
-                    <p className="text-gray-500 text-xs mb-3">
-                      Check all core types that apply to this product. Leave empty if the product doesn't have core types.
-                    </p>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {dbCoreTypes.map((ct) => {
-                        const isChecked = selectedCoreTypeIds.includes(String(ct.id));
-                        return (
-                          <label
-                            key={ct.id}
-                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
-                              isChecked
-                                ? "bg-blue-500/20 border-blue-500 text-white"
-                                : "bg-gray-700/50 border-gray-600 text-gray-300 hover:border-gray-500"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelectedCoreTypeIds((prev) => [...prev, String(ct.id)]);
-                                } else {
-                                  setSelectedCoreTypeIds((prev) =>
-                                    prev.filter((id) => id !== String(ct.id)),
-                                  );
-                                  // Also remove the price entry
-                                  setCorePrices((prev) => {
-                                    const copy = { ...prev };
-                                    delete copy[ct.id];
-                                    return copy;
-                                  });
-                                }
-                              }}
-                              className="w-4 h-4 rounded border-gray-500 text-blue-500 focus:ring-blue-500 bg-gray-700"
-                            />
-                            <span className="text-sm font-medium">
-                              {generateCode(ct.name || ct.display_name)}
-                            </span>
-                          </label>
-                        );
-                      })}
+                {/* ─── Core Types & Prices (Edit mode only — in Add mode, core types are added after product creation) ─── */}
+                {mode === "edit" && (
+                <div className="md:col-span-2">
+                  <div className="border border-blue-500/30 rounded-xl p-5 bg-blue-500/5">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-md font-semibold text-blue-300">
+                        Core Types &amp; Prices
+                      </h4>
+                      <span className="text-xs text-gray-400">
+                        Each cable can have its own custom core type names
+                      </span>
                     </div>
-                    
-                    {/* Manual Core Type Input */}
-                    <div className="mt-4">
-                      {!isManualCore ? (
+                    <p className="text-gray-500 text-xs mb-4">
+                      Add core types specific to this cable (e.g. "2_core", "2/C PVC", "3.5/C XLPE"). Each gets its own price.
+                      Leave empty to use a single base price instead.
+                    </p>
+
+                    {/* Existing core entries */}
+                    {coreEntries.length > 0 && (
+                      <div className="space-y-3 mb-4">
+                        {coreEntries.map((entry) => (
+                          <div
+                            key={entry.localId}
+                            className="flex flex-col sm:flex-row gap-3 items-start sm:items-center bg-gray-700/60 p-3 rounded-lg border border-gray-600"
+                          >
+                            {/* Core name */}
+                            <div className="flex-1 min-w-[140px]">
+                              <label className="block text-[10px] text-gray-400 mb-1">Core Type Name</label>
+                              <input
+                                type="text"
+                                value={entry.name}
+                                onChange={(e) =>
+                                  updateCoreEntry(entry.localId, "name", e.target.value)
+                                }
+                                className="w-full p-2 bg-gray-800 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-blue-500"
+                                placeholder="e.g., 2/C PVC"
+                              />
+                            </div>
+
+                            {/* Price */}
+                            <div className="flex-1 min-w-[120px]">
+                              <label className="block text-[10px] text-gray-400 mb-1">Price (Rs.)</label>
+                              <div className="relative">
+                                <span className="absolute left-2 top-2 text-gray-400 text-xs">Rs.</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={entry.price}
+                                  onChange={(e) =>
+                                    updateCoreEntry(entry.localId, "price", e.target.value)
+                                  }
+                                  className="w-full pl-8 p-2 bg-gray-800 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-blue-500"
+                                  placeholder="0"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Coil Length (per core) */}
+                            <div className="flex-1 min-w-[120px]">
+                              <label className="block text-[10px] text-gray-400 mb-1">Coil Length (m)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={entry.coil_length}
+                                onChange={(e) =>
+                                  updateCoreEntry(entry.localId, "coil_length", e.target.value)
+                                }
+                                className="w-full p-2 bg-gray-800 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-blue-500"
+                                placeholder={newProduct.coil_length || "0"}
+                              />
+                            </div>
+
+                            {/* Remove */}
+                            <button
+                              type="button"
+                              onClick={() => removeCoreEntry(entry.localId)}
+                              className="mt-4 sm:mt-5 p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0"
+                              title="Remove core type"
+                            >
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add new core entry */}
+                    {showAddCore ? (
+                      <div className="flex gap-2 items-center bg-gray-700/40 p-3 rounded-lg border border-dashed border-blue-500/40">
+                        <input
+                          type="text"
+                          value={newCoreName}
+                          onChange={(e) => setNewCoreName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") addCoreEntry(); if (e.key === "Escape") { setShowAddCore(false); setNewCoreName(""); } }}
+                          autoFocus
+                          className="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-blue-500"
+                          placeholder="Enter core type name, e.g. 2/C PVC or 3.5/C XLPE"
+                        />
                         <button
                           type="button"
-                          onClick={() => {
-                            setIsManualCore(true);
-                            handleProductFieldChange("core_type", "");
-                          }}
-                          className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                          onClick={addCoreEntry}
+                          disabled={!newCoreName.trim()}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors disabled:opacity-50"
                         >
-                          <span>+</span> Add New Core Type (Manual)
+                          Add
                         </button>
-                      ) : (
-                        <div className="bg-gray-700/50 p-4 rounded-lg border border-gray-600">
-                          <div className="flex justify-between items-center mb-2">
-                            <label className="text-sm font-medium text-gray-300">
-                              New Core Type Name *
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setIsManualCore(false);
-                                handleProductFieldChange("core_type", "");
-                              }}
-                              className="text-xs text-blue-400 hover:text-blue-300"
-                            >
-                              Close
-                            </button>
-                          </div>
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              value={newProduct.core_type}
-                              onChange={(e) =>
-                                handleProductFieldChange("core_type", e.target.value)
-                              }
-                              className="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-blue-500"
-                              placeholder="e.g., 5 Core or XLPE Armoured"
-                            />
-                            <button
-                              type="button"
-                              onClick={handleCreateCoreType}
-                              disabled={submitting || !newProduct.core_type}
-                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded transition-colors disabled:opacity-50"
-                            >
-                              Add
-                            </button>
-                          </div>
-                          {newProduct.core_type && (
-                            <p className="text-xs text-gray-400 mt-1">
-                              Preview Code: <span className="text-blue-400 font-mono">{generateCode(newProduct.core_type)}</span>
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                        <button
+                          type="button"
+                          onClick={() => { setShowAddCore(false); setNewCoreName(""); }}
+                          className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowAddCore(true)}
+                        className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors mt-1"
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Add Core Type
+                      </button>
+                    )}
 
-                    {selectedCoreTypeIds.length > 0 && (
-                      <p className="text-blue-400 text-xs mt-2">
-                        {selectedCoreTypeIds.length} core type(s) selected
+                    {coreEntries.length > 0 && (
+                      <p className="text-blue-400 text-xs mt-3">
+                        {coreEntries.length} core type(s) configured
                       </p>
                     )}
                   </div>
+                </div>
                 )}
 
-                {/* Base Price - Only show when no core types selected */}
-                {selectedCoreTypeIds.length === 0 && (
+                {/* Base Price — always visible in add mode; in edit mode, only when no core entries */}
+                {(mode === "add" || coreEntries.length === 0) && (
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Base Price (Rs.) *
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-3 text-gray-400 text-sm">
-                        Rs.
-                      </span>
+                      <span className="absolute left-3 top-3 text-gray-400 text-sm">Rs.</span>
                       <input
                         type="number"
                         min="0"
                         value={newProduct.base_price}
-                        onChange={(e) =>
-                          handleProductFieldChange("base_price", e.target.value)
-                        }
-                        className="w-full pl-10 p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        onChange={(e) => handleProductFieldChange("base_price", e.target.value)}
+                        className="w-full pl-10 p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500"
                         placeholder="Enter base price"
                       />
                     </div>
                     <p className="text-gray-500 text-xs mt-1">
-                      Set the base price since no core types are selected.
+                      {mode === "add"
+                        ? "Set the base price. You can optionally add core types with different prices after saving."
+                        : "Set a single base price since no core types are configured."}
                     </p>
-                  </div>
-                )}
-
-                {/* ── Price per Selected Core Type ── */}
-                {selectedCoreTypeIds.length > 0 && (
-                  <div className="md:col-span-2">
-                    <div className="border border-green-500/30 rounded-lg p-4 bg-green-500/5 mt-2">
-                      <h4 className="text-md font-semibold text-green-300 mb-3">
-                        💰 Set Price for Each Core Type
-                      </h4>
-                      <p className="text-gray-400 text-sm mb-4">
-                        Enter the base price for each selected core type.
-                      </p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {selectedCoreTypeIds.map((ctId) => {
-                          const ct = dbCoreTypes.find(
-                            (c) => String(c.id) === String(ctId),
-                          );
-                          const label = generateCode(ct?.name || ct?.display_name || `Core #${ctId}`);
-                          return (
-                            <div
-                              key={ctId}
-                              className="bg-gray-700/50 p-3 rounded-lg border border-gray-600"
-                            >
-                              <label className="block text-sm font-medium text-green-300 mb-2">
-                                {label}
-                              </label>
-                              <div className="relative">
-                                <span className="absolute left-3 top-3 text-gray-400 text-sm">
-                                  Rs.
-                                </span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={corePrices[ctId]?.price || ""}
-                                  onChange={(e) =>
-                                    setCorePrices((prev) => ({
-                                      ...prev,
-                                      [ctId]: {
-                                        ...prev[ctId],
-                                        price: e.target.value,
-                                        coil_length:
-                                          prev[ctId]?.coil_length ||
-                                          newProduct.coil_length ||
-                                          "",
-                                      },
-                                    }))
-                                  }
-                                  className="w-full pl-10 p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                  placeholder="Enter price"
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
                   </div>
                 )}
               </>
             )}
-
-            {/* Price Fields (Edit Mode Only) */}
-            {mode === "edit" && selectedCable && (
-              <div className="md:col-span-2">
-                <h3 className="text-lg font-semibold text-white mb-4">
-                  Edit Prices
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {getPriceFieldsConfig().map((fieldConfig, index) => (
-                    <div key={index} className="bg-gray-700/50 p-4 rounded-lg">
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        {fieldConfig.label}
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-3 text-gray-400">
-                          Rs.
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          value={
-                            fieldConfig.isMatrix
-                              ? priceFields[fieldConfig.field]?.price || ""
-                              : priceFields[fieldConfig.field] || ""
-                          }
-                          onChange={(e) =>
-                            handlePriceChange(fieldConfig.field, e.target.value)
-                          }
-                          className="w-full pl-10 p-3 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Enter price"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Action Buttons */}
+          {/* ── Action Buttons ── */}
           <div className="mt-8 flex justify-end gap-4">
             <button
               type="button"
@@ -2294,66 +1266,66 @@ const ProductManagement = () => {
               {submitting
                 ? "Processing..."
                 : mode === "edit"
-                  ? "Update Product"
-                  : "Add New Product"}
+                ? "Update Product"
+                : "Add New Product"}
             </button>
           </div>
         </div>
 
-        {/* Information Panel */}
+        {/* ── Info Panel ── */}
         <div className="mt-8 bg-gray-800 rounded-xl p-6 border border-gray-700">
           <h3 className="text-lg font-semibold text-white mb-4">Information</h3>
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+              <div className="w-3 h-3 bg-blue-500 rounded-full" />
               <p className="text-gray-300">
-                <span className="font-medium">Edit Mode:</span> Select a cable
-                category and then choose a specific cable to update its prices.
+                <span className="font-medium">Edit Mode:</span> Select a product from the table to load its details and update prices.
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <div className="w-3 h-3 bg-green-500 rounded-full" />
               <p className="text-gray-300">
-                <span className="font-medium">Add Mode:</span> Enter details for
-                a new cable and set its prices across all available types.
+                <span className="font-medium">Add Mode:</span> Fill in product details and add one or more core types with individual prices.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 bg-purple-500 rounded-full" />
+              <p className="text-gray-300">
+                <span className="font-medium">Core Types:</span> Each cable can have completely custom core type names — no ID conflicts.
+                Names like "2_core" and "2/C PVC" can co-exist across different cables.
               </p>
             </div>
             <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
               <p className="text-yellow-400 text-sm">
-                ⚠️ Note: Price changes will affect all future quotations. Make
-                sure to enter correct prices.
+                ⚠️ Note: Price changes will affect all future quotations. Make sure to enter correct prices.
               </p>
             </div>
           </div>
 
           {/* Current Selection Summary */}
-          {selectedCategory && (
+          {(selectedCategory || mode === "add") && (
             <div className="mt-6 pt-6 border-t border-gray-700">
-              <h4 className="text-md font-semibold text-white mb-3">
-                Current Selection
-              </h4>
+              <h4 className="text-md font-semibold text-white mb-3">Current Selection</h4>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <p className="text-gray-400 text-sm">Mode</p>
-                  <p className="text-white font-medium">
-                    {mode === "edit" ? "Editing" : "Adding New"}
-                  </p>
+                  <p className="text-white font-medium">{mode === "edit" ? "Editing" : "Adding New"}</p>
                 </div>
-                <div>
-                  <p className="text-gray-400 text-sm">Category</p>
-                  <p className="text-white font-medium">{selectedCategory}</p>
-                </div>
-                {selectedSubCategory && (
+                {selectedCategory && (
                   <div>
-                    <p className="text-gray-400 text-sm">Type</p>
-                    <p className="text-white font-medium">
-                      {selectedSubCategory}
-                    </p>
+                    <p className="text-gray-400 text-sm">Category</p>
+                    <p className="text-white font-medium">{selectedCategory}</p>
+                  </div>
+                )}
+                {mode === "add" && newProduct.category_name && (
+                  <div>
+                    <p className="text-gray-400 text-sm">Category</p>
+                    <p className="text-white font-medium">{newProduct.category_name}</p>
                   </div>
                 )}
                 {mode === "edit" && selectedCable && (
                   <div className="md:col-span-3">
-                    <p className="text-gray-400 text-sm">Selected Cable</p>
+                    <p className="text-gray-400 text-sm">Selected Product ID</p>
                     <p className="text-white font-medium">{selectedCable}</p>
                   </div>
                 )}
@@ -2367,9 +1339,173 @@ const ProductManagement = () => {
             </div>
           )}
         </div>
+        {/* ── Post-Create: Add Core Types Panel ── */}
+        {showPostCreateCoreTypes && justCreatedProduct && (
+          <div className="mt-8 bg-gray-800 rounded-xl p-6 border border-green-500/40">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+              <h3 className="text-lg font-bold text-green-400">
+                ✅ Product "{justCreatedProduct.name}" created successfully!
+              </h3>
+            </div>
+            <p className="text-gray-400 text-sm mb-6">
+              Do you want to add core types against this product? The first core type's
+              price is pre-filled from the base price (
+              <span className="text-white font-medium">
+                Rs. {justCreatedProduct.base_price}
+              </span>
+              ). You can rename it and add more below.
+            </p>
+
+            {/* Core entries */}
+            <div className="space-y-3 mb-4">
+              {coreEntries.map((entry, idx) => (
+                <div
+                  key={entry.localId}
+                  className="flex flex-col sm:flex-row gap-3 items-start sm:items-center bg-gray-700/60 p-3 rounded-lg border border-gray-600"
+                >
+                  {idx === 0 && (
+                    <span className="text-[10px] text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded-full whitespace-nowrap">
+                      1st core = base price
+                    </span>
+                  )}
+                  <div className="flex-1 min-w-[140px]">
+                    <label className="block text-[10px] text-gray-400 mb-1">
+                      Core Type Name
+                    </label>
+                    <input
+                      type="text"
+                      value={entry.name}
+                      onChange={(e) =>
+                        updateCoreEntry(entry.localId, "name", e.target.value)
+                      }
+                      className="w-full p-2 bg-gray-800 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-green-500"
+                      placeholder="e.g., 2/C PVC"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[120px]">
+                    <label className="block text-[10px] text-gray-400 mb-1">
+                      Price (Rs.)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2 top-2 text-gray-400 text-xs">
+                        Rs.
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={entry.price}
+                        onChange={(e) =>
+                          updateCoreEntry(entry.localId, "price", e.target.value)
+                        }
+                        className="w-full pl-8 p-2 bg-gray-800 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-green-500"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-[120px]">
+                    <label className="block text-[10px] text-gray-400 mb-1">
+                      Coil Length (m)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={entry.coil_length}
+                      onChange={(e) =>
+                        updateCoreEntry(entry.localId, "coil_length", e.target.value)
+                      }
+                      className="w-full p-2 bg-gray-800 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-green-500"
+                      placeholder="0"
+                    />
+                  </div>
+                  {coreEntries.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeCoreEntry(entry.localId)}
+                      className="mt-4 sm:mt-5 p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0"
+                    >
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Add another core entry */}
+            {showAddCore ? (
+              <div className="flex gap-2 items-center bg-gray-700/40 p-3 rounded-lg border border-dashed border-green-500/40 mb-4">
+                <input
+                  type="text"
+                  value={newCoreName}
+                  onChange={(e) => setNewCoreName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") addCoreEntry();
+                    if (e.key === "Escape") { setShowAddCore(false); setNewCoreName(""); }
+                  }}
+                  autoFocus
+                  className="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-white text-sm focus:ring-1 focus:ring-green-500"
+                  placeholder="e.g., 3/C XLPE"
+                />
+                <button
+                  type="button"
+                  onClick={addCoreEntry}
+                  disabled={!newCoreName.trim()}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm rounded transition-colors disabled:opacity-50"
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowAddCore(false); setNewCoreName(""); }}
+                  className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAddCore(true)}
+                className="flex items-center gap-2 text-sm text-green-400 hover:text-green-300 transition-colors mb-6"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Add Another Core Type
+              </button>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-4 justify-end border-t border-gray-700 pt-4">
+              <button
+                type="button"
+                onClick={() => { handleReset(); }}
+                className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors"
+              >
+                Skip — No Core Types
+              </button>
+              <button
+                type="button"
+                onClick={handlePostCreatePriceMatrix}
+                disabled={postCreateSubmitting}
+                className={`px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors ${
+                  postCreateSubmitting ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                {postCreateSubmitting ? "Saving..." : "Save Core Types"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 export default ProductManagement;
+
+
+//////////////////////////////////////
+////////////////////////////////////////////

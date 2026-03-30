@@ -59,7 +59,7 @@ const ActiveQuotations = () => {
         setShowDetailsModal(true);
       }
     }
-  }, [highlightId, quotations, showDetailsModal]);
+  }, [highlightId, quotations]);
 
   // Safe access helper
   const getVal = (val, field) => {
@@ -112,8 +112,8 @@ const ActiveQuotations = () => {
         setQuotations(activeQuotes);
       }
     } catch (err) {
-      console.error("Error fetching active quotations:", err);
-      setError("Failed to load active quotations");
+      console.error("Error fetching approved quotations:", err);
+      setError("Failed to load approved quotations");
     } finally {
       setLoading(false);
     }
@@ -408,7 +408,7 @@ const ActiveQuotations = () => {
               {/* Active Filters Badge */}
               {hasActiveFilters && (
                 <div className="flex flex-wrap gap-2 items-center pt-2 border-t border-gray-700">
-                  <span className="text-xs text-gray-400">Active filters:</span>
+                  <span className="text-xs text-gray-400">Approved filters:</span>
                   
                   {searchQuery && (
                     <span className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-xs">
@@ -453,7 +453,7 @@ const ActiveQuotations = () => {
           {/* Results Summary */}
           <div className="mb-4 flex justify-between items-center">
             <p className="text-gray-400 text-sm">
-              Showing {filteredQuotations.length} of {activeQuotations.length} active quotations
+              Showing {filteredQuotations.length} of {activeQuotations.length} approved quotations
             </p>
             <div className="text-sm text-gray-400">
               {searchQuery && `Found ${filteredQuotations.length} results`}
@@ -479,7 +479,7 @@ const ActiveQuotations = () => {
                 <thead className="bg-gray-700 sm:hidden">
                   <tr>
                     <th colSpan="2" className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">
-                      Active Quotations ({filteredQuotations.length})
+                      Approved Quotations ({filteredQuotations.length})
                     </th>
                   </tr>
                 </thead>
@@ -592,7 +592,7 @@ const ActiveQuotations = () => {
             {filteredQuotations.length === 0 && (
               <div className="text-center py-12">
                 <div className="text-3xl mb-4">📄</div>
-                <p className="text-gray-400">No active quotations found</p>
+                <p className="text-gray-400">No approved quotations found</p>
                 <p className="text-gray-500 text-sm mt-2">
                   {searchQuery 
                     ? `No results found for "${searchQuery}". Try a different search term.`
@@ -613,7 +613,7 @@ const ActiveQuotations = () => {
           {/* Pagination */}
           <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mt-6">
             <p className="text-gray-400 text-sm">
-              Showing {filteredQuotations.length} active quotations
+              Showing {filteredQuotations.length} approved quotations
             </p>
             <div className="flex gap-2">
               <button className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 text-sm">

@@ -45,6 +45,14 @@ export const getQuotations = () => API.get('/quotations');
 export const generateQuotationPdf = (id) => API.post(`/quotations/${id}/generate-pdf`, {}, { responseType: 'blob', headers: { 'Accept': 'application/pdf' } });
 export const markQuotationAsSent = (id) => API.post(`/quotations/${id}/mark-sent`);
 
+export const getPriceMatrix = (productId) => {
+  return API.get(`/admin/products/${productId}/price-matrix`);
+};
+
+// ADD THIS:
+export const getCatalogPriceMatrix = (productId) => {
+  return API.get(`/products/${productId}/price-matrix`);
+};
 
 // Client Management
 export const getClients = () => API.get('/clients');
@@ -62,11 +70,18 @@ export const getVariantOptions = () => API.get('/admin/variant-options');
 export const getProductPriceMatrix = (productId) => API.get(`/admin/products/${productId}/price-matrix`);
 export const setProductPriceMatrix = (productId, data) => API.post(`/admin/products/${productId}/price-matrix`, data);
 export const bulkUpdateProductPrices = (data) => API.post('/admin/products/bulk-update', data);
-
+//////
+// export const createPriceMatrix = (productId, entries) =>
+//   axios.post(`/api/admin/products/${productId}/price-matrix`, { prices: entries });
+///////
 
 // Core Types
 export const getCoreTypes = () => API.get('/admin/core-types');
 export const createCoreType = (data) => API.post('/admin/core-types', data);
+// Use this endpoint for ALL roles
+export const getAllCoreTypes = () => {
+  return API.get(`/catalog/core-types`);
+};
 
 // Catalog APIs (for Salesperson/Manager)
 export const getCatalogCategories = () => API.get('/catalog/categories');
@@ -80,4 +95,9 @@ export const markAllNotificationsRead = () => API.post('/notifications/mark-all-
 export const deleteNotification = (id) => API.delete(`/notifications/${id}`);
 export const clearAllNotifications = () => API.delete('/notifications/clear-all');
 
+// Duplicate Quotation Alerts
+export const getDuplicateAlerts = (page = 1) => API.get('/notifications/duplicate-alerts', { params: { page } });
+export const forceSubmitQuotation = (data) => API.post('/quotations', { ...data, force_submit: true });
+
 export default API;
+

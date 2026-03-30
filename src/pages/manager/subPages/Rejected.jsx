@@ -59,7 +59,7 @@ const Rejected = () => {
         setShowDetailsModal(true);
       }
     }
-  }, [highlightId, quotations, showDetailsModal]);
+  }, [highlightId, quotations]);
 
   // Safe access helper
   const getVal = (val, field) => {

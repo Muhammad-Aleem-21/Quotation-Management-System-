@@ -57,10 +57,26 @@ const SuperAdminDashboard = () => {
           return acc;
         }, { accepted: 0, rejected: 0, pending: 0, win: 0, total: 0 });
 
+        // My quotes: quotations created by this super admin specifically
+        const superAdminUser = JSON.parse(localStorage.getItem("user") || "{}");
+        const superAdminId = String(superAdminUser.id || "");
+        const myQuotes = allQuotes.filter(q => {
+          const possibleIds = [
+            q.salesperson_id,
+            q.user_id,
+            q.created_by,
+            q.approved_by,
+            q.client?.salesperson_id,
+            q.user?.id
+          ].map(id => id ? String(id) : null).filter(Boolean);
+          return possibleIds.includes(superAdminId);
+        });
+
         setQuotationCounts(prev => ({
           ...prev,
           ...counts,
-          users: dashStats?.total_users || prev.users || 0 
+          users: dashStats?.total_users || prev.users || 0,
+          myQuotationsCount: myQuotes.length
         }));
 
       } catch (err) {
@@ -316,6 +332,27 @@ const SuperAdminDashboard = () => {
             </div>
             <div className="w-10 h-10 sm:w-14 sm:h-14 bg-red-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl">
               ❌
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* My Quotations Card */}
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8">
+        <div 
+          onClick={() => navigate('/super-admin/my-quotations')}
+          className="bg-gradient-to-br from-cyan-500/20 to-blue-500/20 p-4 sm:p-6 rounded-xl border border-cyan-500/30 cursor-pointer hover:scale-[1.02] transition-transform duration-200"
+        >
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-gray-400 text-sm sm:text-base">My Quotations</p>
+              <h2 className="text-2xl sm:text-4xl font-bold text-white mt-1 sm:mt-2">{quotationCounts.myQuotationsCount || 0}</h2>
+              <p className="text-cyan-400 text-xs sm:text-sm mt-1">
+                Created by me → Click to view
+              </p>
+            </div>
+            <div className="w-10 h-10 sm:w-14 sm:h-14 bg-cyan-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl">
+              📝
             </div>
           </div>
         </div>

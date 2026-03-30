@@ -69,6 +69,7 @@ import ActiveQuotations from "./pages/manager/subPages/ActiveQuotations";
 import TeamRevenue from "./pages/manager/subPages/TeamRevenue";
 import Pending from "./pages/manager/subPages/Pending";
 import RejectedQuot from "./pages/manager/subPages/Rejected";
+import MyQuotationsPage from "./pages/shared/MyQuotationsPage";
 import "./App.css";
 import NotificationBell from "./components/NotificationBell";
 
@@ -336,6 +337,7 @@ function App() {
         <Route path="/admin/rejected" element={<ProtectedRoute requiredRole="admin"><RejectedAdmin /></ProtectedRoute>} />
         <Route path="/admin/managers" element={<ProtectedRoute requiredRole="admin"><Managers /></ProtectedRoute>} />
         <Route path="/admin/win" element={<ProtectedRoute requiredRole="admin"><Win /></ProtectedRoute>} />
+        <Route path="/admin/my-quotations" element={<ProtectedRoute requiredRole="admin"><AdminLayout><MyQuotationsPage /></AdminLayout></ProtectedRoute>} />
         {/* SUPER ADMIN ROUTES */}
         <Route
           path="/super-admin-dashboard"
@@ -550,6 +552,8 @@ function App() {
         <Route path="/team-revenue" element={<ProtectedRoute requiredRole="manager"><TeamRevenue /></ProtectedRoute>} />
         <Route path="/manager/pending" element={<ProtectedRoute requiredRole="manager"><Pending /></ProtectedRoute>} />
         <Route path="/manager/rejected" element={<ProtectedRoute requiredRole="manager"><RejectedQuot /></ProtectedRoute>} />
+        <Route path="/manager/my-quotations" element={<ProtectedRoute requiredRole="manager"><ManagerLayout><MyQuotationsPage /></ManagerLayout></ProtectedRoute>} />
+        <Route path="/super-admin/my-quotations" element={<ProtectedRoute requiredRole="super-admin"><SuperAdminLayout><MyQuotationsPage /></SuperAdminLayout></ProtectedRoute>} />
       </Routes>
     </Router>
   );

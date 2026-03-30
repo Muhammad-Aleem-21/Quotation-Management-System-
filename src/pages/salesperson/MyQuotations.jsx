@@ -104,7 +104,7 @@ const MyQuotations = () => {
         setShowDetailsModal(true);
       }
     }
-  }, [highlightId, quotations, showDetailsModal]);
+  }, [highlightId, quotations]);
 
   useEffect(() => {
     fetchQuotations();

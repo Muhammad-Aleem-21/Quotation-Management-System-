@@ -92,20 +92,6 @@ const DashboardData = {
     },
   ],
 
-  trend: [
-    { month: "Jan", approved: 40, rejected: 10 },
-    { month: "Feb", approved: 55, rejected: 14 },
-    { month: "Mar", approved: 60, rejected: 12 },
-    { month: "Apr", approved: 70, rejected: 15 },
-    { month: "May", approved: 65, rejected: 20 },
-    { month: "Jun", approved: 80, rejected: 18 },
-  ],
-
-  statusDistribution: [
-    { name: "Approved", value: 98 },
-    { name: "Rejected", value: 36 },
-    { name: "Pending", value: 30 },
-  ],
 };
 
 const COLORS = ["#16a34a", "#dc2626", "#f59e0b"]; // green, red, yellow
@@ -120,7 +106,10 @@ export default function AdminDashboard() {
     pending: 0,
     approved: 0,
     rejected: 0,
-    win: 0
+    win: 0,
+    myQuotationsCount: 0,
+    statusDistribution: [],
+    trend: []
   });
 
   React.useEffect(() => {
@@ -131,9 +120,10 @@ export default function AdminDashboard() {
           getQuotations()
         ]);
 
+        const adminId = String(user.id);
+
         if (statsResponse.data.success) {
           const myTeam = statsResponse.data.dashboard_stats.my_team || [];
-          const adminId = String(user.id);
           const myAdminTeam = myTeam.filter(
             (member) => String(member.created_by_admin) === adminId
           );
@@ -158,27 +148,75 @@ export default function AdminDashboard() {
           
           if (userRole === 'admin') {
             const myTeam = statsResponse.data.dashboard_stats?.my_team || [];
-            const adminId = String(user.id);
-            const branchUserIds = myTeam
-              .filter(member => String(member.created_by_admin) === adminId || String(member.id) === adminId)
+            // For Admin, we want to see their team's quotes AND their own.
+            // Using a broader set of identifying fields to ensure nothing is missed.
+            const teamMemberIds = myTeam
               .map(member => String(member.id));
+            
+            if (!teamMemberIds.includes(adminId)) {
+                teamMemberIds.push(adminId);
+            }
 
             scopedQuotes = allQuotes.filter(quote => {
-              const creatorId = String(quote.user_id || quote.salesperson_id || quote.user?.id || "");
-              return branchUserIds.includes(creatorId);
+              const creatorId = String(quote.user_id || quote.salesperson_id || quote.created_by || quote.user?.id || "");
+              return teamMemberIds.includes(creatorId) || creatorId === adminId;
             });
           }
+
+          // My quotes: quotations created by this admin specifically
+          const adminQuotes = allQuotes.filter(q => {
+            const creatorId = String(q.user_id || q.created_by || q.salesperson_id || q.user?.id || "");
+            return creatorId === adminId;
+          });
           
+          // Status filtering logic
+          const isPending = (s) => ['pending', 'submitted', 'revised', 'received'].includes(s?.toLowerCase());
+          const isApproved = (s) => ['approved', 'accepted', 'auto-approved', 'sent'].includes(s?.toLowerCase());
+          const isRejected = (s) => s?.toLowerCase() === 'rejected';
+          const isWin = (s) => s?.toLowerCase() === 'win';
+
           const stats = {
             total: scopedQuotes.length,
-            pending: scopedQuotes.filter(q => ['pending', 'submitted', 'revised'].includes(q.status?.toLowerCase())).length,
-            approved: scopedQuotes.filter(q => ['approved', 'accepted'].includes(q.status?.toLowerCase())).length,
-            rejected: scopedQuotes.filter(q => q.status?.toLowerCase() === 'rejected').length,
-            win: scopedQuotes.filter(q => q.status?.toLowerCase() === 'win').length
+            pending: scopedQuotes.filter(q => isPending(q.status)).length,
+            approved: scopedQuotes.filter(q => isApproved(q.status)).length,
+            rejected: scopedQuotes.filter(q => isRejected(q.status)).length,
+            win: scopedQuotes.filter(q => isWin(q.status)).length,
+            myQuotationsCount: adminQuotes.length,
+            statusDistribution: [
+              { name: "Approved", value: scopedQuotes.filter(q => isApproved(q.status)).length },
+              { name: "Rejected", value: scopedQuotes.filter(q => isRejected(q.status)).length },
+              { name: "Pending", value: scopedQuotes.filter(q => isPending(q.status)).length },
+            ],
+            trend: []
           };
+
+          // Generate trend data (last 6 months)
+          const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+          const trendData = [];
+          const now = new Date();
+          
+          for (let i = 5; i >= 0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const monthName = months[d.getMonth()];
+            const year = d.getFullYear();
+            const monthIndex = d.getMonth();
+            
+            const monthQuotes = scopedQuotes.filter(q => {
+              const qDate = new Date(q.created_at || q.quotation_date);
+              return qDate.getMonth() === monthIndex && qDate.getFullYear() === year;
+            });
+            
+            trendData.push({
+              month: monthName,
+              approved: monthQuotes.filter(q => isApproved(q.status)).length,
+              rejected: monthQuotes.filter(q => isRejected(q.status)).length,
+            });
+          }
+          stats.trend = trendData;
           
           setQuoteStats(stats);
         }
+
       } catch (err) {
         console.error("Error fetching live stats:", err);
       }
@@ -276,6 +314,23 @@ export default function AdminDashboard() {
         })}
       </div>
 
+      {/* ---------------- My Quotations Card ---------------- */}
+      <div className="grid grid-cols-1 gap-6 mb-10">
+        <div
+          onClick={() => navigate("/admin/my-quotations")}
+          className="bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-2xl p-6 shadow-lg border border-cyan-500/30 flex justify-between items-center cursor-pointer hover:border-cyan-500 transition-all duration-200"
+        >
+          <div>
+            <p className="text-gray-400">My Quotations</p>
+            <h2 className="text-4xl font-bold mt-2 text-white">{quoteStats.myQuotationsCount}</h2>
+            <p className="text-cyan-400 text-sm mt-1">Created by me → Click to view</p>
+          </div>
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-2xl bg-cyan-600">
+            📝
+          </div>
+        </div>
+      </div>
+
       {/* ---------------- Charts Section ---------------- */}
       <div className="grid lg:grid-cols-2 gap-10">
         {/* -------- Trend Line Chart -------- */}
@@ -283,7 +338,7 @@ export default function AdminDashboard() {
           <h2 className="text-xl font-semibold mb-4">Quotation Trend</h2>
 
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={DashboardData.trend}>
+            <LineChart data={quoteStats.trend}>
               <CartesianGrid strokeDasharray="3 3" stroke="#444" />
               <XAxis dataKey="month" stroke="#ccc" />
               <YAxis stroke="#ccc" />
@@ -320,7 +375,7 @@ export default function AdminDashboard() {
           <ResponsiveContainer width="100%" height={280}>
             <PieChart>
               <Pie
-                data={DashboardData.statusDistribution}
+                data={quoteStats.statusDistribution}
                 cx="50%"
                 cy="50%"
                 innerRadius={60}
@@ -331,7 +386,7 @@ export default function AdminDashboard() {
                   `${name} ${(percent * 100).toFixed(0)}%`
                 }
               >
-                {DashboardData.statusDistribution.map((entry, index) => (
+                {quoteStats.statusDistribution.map((entry, index) => (
                   <Cell key={index} fill={COLORS[index]} />
                 ))}
               </Pie>

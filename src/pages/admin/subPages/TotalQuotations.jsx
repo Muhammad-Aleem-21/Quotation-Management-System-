@@ -117,20 +117,20 @@ const TotalQuotations = () => {
 
       if (quotesRes.data && statsRes.data) {
         const allQuotes = quotesRes.data.data || quotesRes.data.quotations || quotesRes.data || [];
-        
         if (userRole === 'superadmin') {
           setQuotations(allQuotes);
         } else {
-          // Filter for Admin: only those in their branch
-          const allTeam = statsRes.data.dashboard_stats?.my_team || [];
           const adminId = String(user.id);
-          const branchUserIds = allTeam
-            .filter(member => String(member.created_by_admin) === adminId || String(member.id) === adminId)
-            .map(member => String(member.id));
+          const allTeam = statsRes.data.dashboard_stats?.my_team || [];
+          const teamMemberIds = allTeam.map(member => String(member.id));
+          
+          if (!teamMemberIds.includes(adminId)) {
+            teamMemberIds.push(adminId);
+          }
 
           const scopedQuotes = allQuotes.filter(quote => {
-            const creatorId = String(quote.user_id || quote.salesperson_id || quote.user?.id || "");
-            return branchUserIds.includes(creatorId);
+            const creatorId = String(quote.user_id || quote.salesperson_id || quote.created_by || quote.user?.id || "");
+            return teamMemberIds.includes(creatorId) || creatorId === adminId;
           });
           setQuotations(scopedQuotes);
         }
@@ -268,17 +268,21 @@ const TotalQuotations = () => {
   // Summary stats
   const summaryStats = useMemo(() => {
     const total = allQuotations.length;
-    const approved = allQuotations.filter(q => (q.status || "").toLowerCase() === 'approved' || (q.status || "").toLowerCase() === 'accepted').length;
-    const pending = allQuotations.filter(q => (q.status || "").toLowerCase() === 'pending' || (q.status || "").toLowerCase() === 'submitted').length;
-    const rejected = allQuotations.filter(q => (q.status || "").toLowerCase() === 'rejected').length;
-    const totalAmount = allQuotations.reduce((sum, q) => sum + parseFloat(q.final_amount || q.total_amount || 0), 0);
+    const isPending = (s) => ['pending', 'submitted', 'revised', 'received'].includes(s?.toLowerCase());
+    const isApproved = (s) => ['approved', 'accepted', 'auto-approved', 'sent'].includes(s?.toLowerCase());
+    const isRejected = (s) => s?.toLowerCase() === 'rejected';
+
+    const approvedCount = allQuotations.filter(q => isApproved(q.status)).length;
+    const pendingCount = allQuotations.filter(q => isPending(q.status)).length;
+    const rejectedCount = allQuotations.filter(q => isRejected(q.status)).length;
+    const totalAmountValue = allQuotations.reduce((sum, q) => sum + parseFloat(q.final_amount || q.total_amount || 0), 0);
     
     return {
       total,
-      approved,
-      pending,
-      rejected,
-      totalAmount: `$${totalAmount.toLocaleString()}`
+      approved: approvedCount,
+      pending: pendingCount,
+      rejected: rejectedCount,
+      totalAmount: `Rs. ${totalAmountValue.toLocaleString()}`
     };
   }, [allQuotations]);
 
@@ -519,7 +523,7 @@ const TotalQuotations = () => {
                 <thead className="bg-gray-700 hidden sm:table-header-group">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">ID</th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Salesperson</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Created By</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Customer</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Date</th>
                     <th className="px-4 py-3 text-left font-semibold text-gray-300 text-sm">Amount</th>

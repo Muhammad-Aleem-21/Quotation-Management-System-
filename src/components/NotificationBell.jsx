@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { FiBell, FiCheck, FiCheckCircle, FiTrash2, FiX, FiXCircle, FiClock, FiAlertCircle } from "react-icons/fi";
+import { FiBell, FiCheck, FiCheckCircle, FiTrash2, FiX, FiXCircle, FiClock, FiAlertCircle, FiAlertTriangle } from "react-icons/fi";
 import {
   getNotifications,
   getNotificationStats,
@@ -10,23 +10,19 @@ import {
   clearAllNotifications,
 } from "../api/api";
 
-// Helper: human‑readable time ago
-const timeAgo = (dateStr) => {
-  if (!dateStr) return "";
-  const now = new Date();
-  const date = new Date(dateStr);
-  const diff = Math.floor((now - date) / 1000);
-  if (diff < 60) return "Just now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-  return date.toLocaleDateString();
-};
-
 // Map notification type/status to icon & color
 const getNotificationMeta = (notification) => {
   const type = (notification.type || notification.data?.type || "").toLowerCase();
   const message = (notification.message || notification.data?.message || "").toLowerCase();
+
+  // Duplicate quotation alerts
+  if (type.includes("duplicate_quotation") || type.includes("duplicate")) {
+    const alertLevel = notification.data?.alert_level || "";
+    if (alertLevel === "high" || notification.data?.critical) {
+      return { icon: <FiAlertCircle />, color: "text-red-400", bg: "bg-red-500/10", border: "border-red-500/30" };
+    }
+    return { icon: <FiAlertTriangle />, color: "text-orange-400", bg: "bg-orange-500/10", border: "border-orange-500/30" };
+  }
 
   if (type.includes("approved") || type.includes("accepted") || message.includes("approved") || message.includes("accepted")) {
     return { icon: <FiCheckCircle />, color: "text-green-400", bg: "bg-green-500/10", border: "border-green-500/30" };
@@ -43,11 +39,25 @@ const getNotificationMeta = (notification) => {
 // Determine target route based on role
 const getTargetRoute = (notification) => {
   const role = localStorage.getItem("role") || "";
-  const quotationId = notification.quotation_id || notification.data?.quotation_id || "";
+  const quotationId = notification.notifiable_id || notification.quotation_id || notification.data?.quotation_id || notification.data?.new_quotation?.id || "";
   const type = (notification.type || notification.data?.type || "").toLowerCase();
   const message = (notification.message || notification.data?.message || "").toLowerCase();
 
   const highlightParam = quotationId ? `?highlight=${quotationId}` : "";
+
+  // Duplicate alerts route to pending page for review
+  if (type.includes("duplicate_quotation") || type.includes("duplicate")) {
+    switch (role) {
+      case "super-admin":
+        return `/pending-list${highlightParam}`;
+      case "admin":
+        return `/admin/pending${highlightParam}`;
+      case "manager":
+        return `/manager/pending${highlightParam}`;
+      default:
+        return `/my-quotation${highlightParam}`;
+    }
+  }
   
   const isApproved = type.includes("approved") || type.includes("accepted") || message.includes("approved") || message.includes("accepted");
   const isRejected = type.includes("rejected") || message.includes("rejected");
@@ -293,10 +303,7 @@ export default function NotificationBell({ inline = false }) {
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm leading-snug ${isUnread ? "text-white font-medium" : "text-gray-300"}`}>
-                        {notification.message || notification.data?.message || "New notification"}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {timeAgo(notification.created_at)}
+                        {notification.title || notification.message || notification.data?.message || "New notification"}
                       </p>
                     </div>
 
