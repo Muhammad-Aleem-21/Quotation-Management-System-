@@ -131,14 +131,18 @@ const RejectedList = () => {
     if (!searchQuery) return rejectedQuotations;
 
     const query = searchQuery.toLowerCase();
-    return rejectedQuotations.filter(
-      (quote) =>
-      (quote.client_name || quote.customer || "").toLowerCase().includes(query) ||
-      String(quote.id).toLowerCase().includes(query) ||
-      (quote.service_name || quote.service || "").toLowerCase().includes(query) ||
-      (quote.user?.name || quote.salesperson || "").toLowerCase().includes(query) ||
-      (quote.client_email || quote.customerEmail || "").toLowerCase().includes(query),
-    );
+    return rejectedQuotations.filter((quote) => {
+      const customerName = getVal(quote.client || quote.customer, 'name') || quote.client_name || '';
+      const customerEmail = getVal(quote.client || quote.customer, 'email') || quote.client_email || '';
+      const salesperson = getVal(quote.user || quote.salesperson, 'name') || '';
+
+      return (
+        customerName.toLowerCase().includes(query) ||
+        customerEmail.toLowerCase().includes(query) ||
+        salesperson.toLowerCase().includes(query) ||
+        String(quote.id).includes(query)
+      );
+    });
   }, [rejectedQuotations, searchQuery]);
 
   const getPriorityColor = (priority) => {

@@ -143,19 +143,27 @@ const Rejected = () => {
   // Filter quotations based on search
   const filteredQuotations = useMemo(() => {
     let list = [...rejectedQuotations];
+    
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      list = list.filter(
-        (quote) =>
-        (quote.client_name || quote.customer || "").toLowerCase().includes(query) ||
-        String(quote.id).toLowerCase().includes(query) ||
-        (quote.service_name || quote.service || "").toLowerCase().includes(query) ||
-        (quote.user?.name || quote.salesperson || "").toLowerCase().includes(query) ||
-        (quote.client_email || quote.customerEmail || "").toLowerCase().includes(query) ||
-        (quote.reason || "").toLowerCase().includes(query) ||
-        (quote.rejectedBy || "").toLowerCase().includes(query)
-      );
+      list = list.filter((quote) => {
+        const customerName = getVal(quote.client || quote.customer, 'name') || quote.client_name || '';
+        const customerEmail = getVal(quote.client || quote.customer, 'email') || quote.client_email || '';
+        const salesperson = getVal(quote.user || quote.salesperson, 'name') || '';
+        const rejectedBy = quote.rejected_by_name || getVal(quote.rejected_by, 'name') || '';
+        const reason = quote.rejection_reason || quote.reason || '';
+
+        return (
+          customerName.toLowerCase().includes(query) ||
+          customerEmail.toLowerCase().includes(query) ||
+          salesperson.toLowerCase().includes(query) ||
+          rejectedBy.toLowerCase().includes(query) ||
+          reason.toLowerCase().includes(query) ||
+          String(quote.id).includes(query)
+        );
+      });
     }
+
     return list;
   }, [rejectedQuotations, searchQuery]);
 

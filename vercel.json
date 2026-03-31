@@ -3,6 +3,10 @@
     {
       "source": "/api/:path*",
       "destination": "http://backend-qms.fortuneitpark.com/api/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }

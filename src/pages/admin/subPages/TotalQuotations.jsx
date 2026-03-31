@@ -158,54 +158,54 @@ const TotalQuotations = () => {
   // Filter and sort quotations
   const filteredQuotations = useMemo(() => {
     let result = [...allQuotations];
-    
-    // Apply search filter
+
+    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(quote =>
-        (quote.client_name || quote.customer || "").toLowerCase().includes(query) ||
-        String(quote.id).toLowerCase().includes(query) ||
-        (quote.service_name || quote.service || "").toLowerCase().includes(query) ||
-        (quote.user?.name || quote.salesperson || "").toLowerCase().includes(query) ||
-        (quote.client_email || quote.customerEmail || "").toLowerCase().includes(query)
-      );
+      result = result.filter(quote => {
+        const customerName = getVal(quote.client || quote.customer, 'name') || quote.client_name || '';
+        const customerEmail = getVal(quote.client || quote.customer, 'email') || quote.client_email || '';
+        const salesperson = getVal(quote.user || quote.salesperson, 'name') || '';
+
+        return (
+          customerName.toLowerCase().includes(query) ||
+          customerEmail.toLowerCase().includes(query) ||
+          salesperson.toLowerCase().includes(query) ||
+          String(quote.id).includes(query)
+        );
+      });
     }
-    
-    // Apply status filter
+
+    // Status filter
     if (filters.status !== 'all') {
       result = result.filter(quote => quote.status === filters.status);
     }
-    
-    // Apply salesperson filter
+
+    // Salesperson filter
     if (filters.salesperson !== 'all') {
       result = result.filter(quote => getVal(quote.user || quote.salesperson, 'name') === filters.salesperson);
     }
-    
-    // Apply sorting
+
+    // Sorting
     result.sort((a, b) => {
+      const aCustomer = getVal(a.client || a.customer, 'name') || a.client_name || '';
+      const bCustomer = getVal(b.client || b.customer, 'name') || b.client_name || '';
+      const aSales = getVal(a.user || a.salesperson, 'name') || '';
+      const bSales = getVal(b.user || b.salesperson, 'name') || '';
+      const aAmount = parseFloat(String(a.final_amount || a.total_amount || 0).replace(/[$,]/g, ''));
+      const bAmount = parseFloat(String(b.final_amount || b.total_amount || 0).replace(/[$,]/g, ''));
+
       let comparison = 0;
-      
       switch (filters.sortBy) {
-        case 'date':
-          comparison = new Date(b.date) - new Date(a.date);
-          break;
-        case 'amount':
-          comparison = parseFloat(String(b.final_amount || b.total_amount || 0).replace('$', '').replace(',', '')) - 
-                       parseFloat(String(a.final_amount || a.total_amount || 0).replace('$', '').replace(',', ''));
-          break;
-        case 'salesperson':
-          comparison = getVal(a.user || a.salesperson, 'name').localeCompare(getVal(b.user || b.salesperson, 'name'));
-          break;
-        case 'customer':
-          comparison = a.customer.localeCompare(b.customer);
-          break;
-        default:
-          comparison = new Date(b.date) - new Date(a.date);
+        case 'amount':      comparison = bAmount - aAmount; break;
+        case 'salesperson': comparison = aSales.localeCompare(bSales); break;
+        case 'customer':    comparison = aCustomer.localeCompare(bCustomer); break;
+        default:            comparison = new Date(b.date || b.created_at) - new Date(a.date || a.created_at);
       }
-      
-      return filters.sortOrder === 'asc' ? comparison : -comparison;
+
+      return filters.sortOrder === 'asc' ? -comparison : comparison;
     });
-    
+
     return result;
   }, [allQuotations, searchQuery, filters]);
 
