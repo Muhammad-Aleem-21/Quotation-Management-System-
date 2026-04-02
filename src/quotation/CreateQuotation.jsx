@@ -1,3 +1,4 @@
+
 // import { FiAlertCircle, FiSave, FiPlus, FiTrash2, FiEdit, FiCheckCircle, FiXCircle, FiAlertTriangle, FiRefreshCw, FiSearch, FiChevronDown, FiX } from "react-icons/fi";
 
 // import React, { useState, useEffect, useRef } from "react";
@@ -8,6 +9,7 @@
 //   getCoreTypes,
 //   getCatalogCategories,
 //   getCatalogCoreTypes,
+//   getAllCoreTypes,      // ADD THIS
 //   getClients,
 //   createClient,
 //   submitQuotation,
@@ -15,6 +17,7 @@
 //   resubmitQuotation,
 //   forceSubmitQuotation,
 //   getPriceMatrix,
+//   getCatalogPriceMatrix, // add this
 // } from "../api/api";
 // import DuplicateAlertDialog from "../components/DuplicateAlertDialog";
 
@@ -255,6 +258,14 @@
 
 //   const getDiscountLimit = () => discountLimits[userRole] || 30;
 
+//   // Define this once near the top of your component (after the userRole prop):
+//   const fetchPriceMatrix = (productId) => {
+//     const isSalesOrManager = userRole === "salesperson" || userRole === "manager";
+//     return isSalesOrManager
+//       ? getCatalogPriceMatrix(productId)
+//       : getPriceMatrix(productId);
+//   };
+
 //   // ── Fetch all data on mount ──
 //   useEffect(() => {
 //     const fetchData = async () => {
@@ -268,7 +279,7 @@
 //         const [prodRes, catRes, coreRes, clientRes] = await Promise.all([
 //           getProducts().catch(err => { console.error("Products Fetch Error:", err); throw err; }),
 //           (isSalesOrManager ? getCatalogCategories() : getCategories()).catch(err => { console.error("Categories Fetch Error:", err); throw err; }),
-//           (isSalesOrManager ? getCatalogCoreTypes() : getCoreTypes()).catch(err => { console.error("CoreTypes Fetch Error:", err); throw err; }),
+//           getAllCoreTypes().catch(err => { console.error("CoreTypes Fetch Error:", err); throw err; }),  // ← ALL roles use this
 //           getClients().catch(err => { console.error("Clients Fetch Error:", err); throw err; }),
 //         ]);
 
@@ -329,20 +340,16 @@
 
 //   // ── Handle Edit Mode Pre-filling ──
 //   useEffect(() => {
-//     if (location.state?.editQuotation) {
-//       const editQuote = location.state.editQuotation;
-      
-//       if (loading || allCoreTypes.length === 0) {
-//         return;
-//       }
+//   if (location.state?.editQuotation) {
+//     const editQuote = location.state.editQuotation;
 
-//       if (hasPrefilled.current === editQuote.id) {
-//         return;
-//       }
-      
+//     if (loading || allCoreTypes.length === 0) return;
+//     if (hasPrefilled.current === editQuote.id) return;
+
+//     (async () => {
 //       console.log("========== ENTERING EDIT MODE ==========");
 //       console.log("Quotation Data:", editQuote);
-      
+
 //       setIsEditMode(true);
 //       setEditingQuotationId(editQuote.id);
 
@@ -381,67 +388,99 @@
 
 //       if (editQuote.items && Array.isArray(editQuote.items)) {
 //         console.log("Mapping items:", editQuote.items);
-//         const mappedItems = editQuote.items.map(item => {
-//           let coreId = item.core_type_id || item.core_type;
-//           let coreName = item.core_type_name || (typeof item.core_type === 'string' ? item.core_type : "");
-//           let coreCode = item.core_type_code || (typeof item.core_type === 'string' ? item.core_type : null);
-          
-//           if (typeof coreId === 'string' && isNaN(coreId)) {
-//             const foundCoreType = allCoreTypes.find(ct => 
-//               ct.name?.toLowerCase() === coreId.toLowerCase() || 
-//               ct.display_name?.toLowerCase() === coreId.toLowerCase() ||
-//               ct.code?.toLowerCase() === coreId.toLowerCase()
-//             );
-//             if (foundCoreType) {
-//               coreId = foundCoreType.id;
-//               coreName = foundCoreType.display_name || foundCoreType.name;
-//               coreCode = foundCoreType.code;
-//             }
-//           } else if (coreId && allCoreTypes.length > 0) {
-//             const foundCoreType = allCoreTypes.find(ct => String(ct.id) === String(coreId));
-//             if (foundCoreType) {
-//               coreName = foundCoreType.display_name || foundCoreType.name;
-//               coreCode = foundCoreType.code;
-//             }
-//           }
 
-//           const unitPrice = parseFloat(item.base_price || item.unit_price || item.price || 0);
+//         // ── Fetch price matrix for each unique product upfront ──
+//         const uniqueProductIds = [...new Set(
+//           editQuote.items.map(item => String(item.product_id || item.product?.id))
+//         )];
+
+//         const matrixMap = {};
+//         await Promise.all(
+//           uniqueProductIds.map(async (productId) => {
+//             try {
+//               const response = await fetchPriceMatrix(productId);
+//               const coreTypes = response.data?.core_types || [];
+//               const prices = response.data?.prices || {};
+//               const matrix = coreTypes.map(coreType => {
+//                 const priceData = prices[coreType.code];
+//                 return {
+//                   core_type_id: coreType.id,
+//                   core_type_name: coreType.display_name || coreType.name,
+//                   core_type_code: coreType.code,
+//                   price: priceData?.price ? parseFloat(priceData.price) : null,
+//                   coil_length: priceData?.coil_length ? parseFloat(priceData.coil_length) : null,
+//                   exists: priceData?.exists || false
+//                 };
+//               }).filter(entry => entry.price && entry.price > 0 && entry.exists === true);
+//               matrixMap[productId] = matrix;
+//             } catch (err) {
+//               console.error("Failed to fetch price matrix for product:", productId, err);
+//               matrixMap[productId] = [];
+//             }
+//           })
+//         );
+
+//         console.log("Matrix map built:", matrixMap);
+
+//         const mappedItems = editQuote.items.map(item => {
+//           const productId = String(item.product_id || item.product?.id || "");
+//           const categoryId = item.product?.category_id ?? null;
+//           const unitPrice = parseFloat(item.unit_price || item.base_price || 0);
 //           const qty = parseInt(item.quantity) || 0;
 //           const totalBefore = unitPrice * qty;
-//           const discVal = parseFloat(item.discount_value || item.discount || 0);
-//           const discType = item.discount_type || "percentage";
-          
+//           const discVal = parseFloat(
+//             item.discount_percentage ??
+//             item.discount_value ??
+//             item.discount_percent ??
+//             0
+//           );
+//           const discType = discVal > 0 ? "percentage" : "none";
+
 //           let discAmt = 0;
 //           if (discType === 'percentage') {
 //             discAmt = (totalBefore * discVal) / 100;
-//           } else if (discType === 'fixed' || discType === 'amount') {
-//             discAmt = discVal;
 //           }
+
+//           // ── Resolve core type by matching unit_price against price matrix ──
+//           const matrix = matrixMap[productId] || [];
+//           const matrixEntry = matrix.find(
+//             p => parseFloat(p.price) === parseFloat(unitPrice)
+//           );
+
+//           console.log(
+//             `Item product_id=${productId} unit_price=${unitPrice}`,
+//             "→ matched core:", matrixEntry?.core_type_name ?? "NOT FOUND"
+//           );
+
+//           const categoryName = allCategories.find(
+//             c => String(c.id) === String(categoryId)
+//           )?.name || item.product?.category?.name || "N/A";
 
 //           return {
 //             id: item.id || Date.now() + Math.random(),
-//             productId: item.product_id || item.productId || item.product?.id,
-//             coreTypeId: coreId,
-//             productName: item.product?.name || item.product_name || item.name || `Product #${item.product_id}`,
-//             categoryName: item.product?.category?.name || item.category_name || "N/A",
-//             coreTypeName: coreName || (typeof item.core_type === 'string' ? item.core_type : `Core #${item.core_type}`),
-//             coreTypeCode: coreCode,
-//             color: item.color || "",
+//             productId: productId,
+//             coreTypeId: matrixEntry ? String(matrixEntry.core_type_id) : null,
+//             productName: item.product?.name || item.description || `Product #${productId}`,
+//             categoryName: categoryName,
+//             coreTypeName: matrixEntry?.core_type_name || "",
+//             coreTypeCode: matrixEntry?.core_type_code || null,
+//             color: item.color || item.color_distribution?.[0]?.color || "",
 //             quantity: qty,
-//             coilLength: item.coil_length || item.coilLength || 0,
+//             coilLength: parseFloat(item.product?.coil_length || item.coil_length || 0),
 //             unitPrice: unitPrice,
 //             totalBeforeDiscount: totalBefore,
 //             discountType: discType,
 //             discountValue: discVal,
 //             discountAmount: discAmt,
-//             finalPrice: parseFloat(item.final_price || item.finalPrice) || (totalBefore - discAmt),
+//             finalPrice: parseFloat(item.total_price || item.final_price) || (totalBefore - discAmt),
 //             showDiscountInPdf: item.show_discount_in_pdf !== undefined ? item.show_discount_in_pdf : true,
 //           };
 //         });
-//         console.log("Mapped items:", mappedItems);
+
+//         console.log("Mapped items with resolved core types:", mappedItems);
 //         setQuotationItems(mappedItems);
 //       }
-      
+
 //       hasPrefilled.current = editQuote.id;
 
 //       if (location.state.isResubmit) {
@@ -454,14 +493,16 @@
 //         setIsResubmit(false);
 //         setRejectionDetails(null);
 //       }
-//     } else {
-//       setIsEditMode(false);
-//       setIsResubmit(false);
-//       setEditingQuotationId(null);
-//       setRejectionDetails(null);
-//       hasPrefilled.current = null;
-//     }
-//   }, [location.state, allCategories, allProducts, allCoreTypes, allClients, loading]);
+//     })();
+
+//   } else {
+//     setIsEditMode(false);
+//     setIsResubmit(false);
+//     setEditingQuotationId(null);
+//     setRejectionDetails(null);
+//     hasPrefilled.current = null;
+//   }
+// }, [location.state, allCategories, allProducts, allCoreTypes, allClients, loading]);
 
 //   // ── When category changes → filter products ──
 //   useEffect(() => {
@@ -526,7 +567,7 @@
       
 //       try {
 //         // Fetch price matrix from the API
-//         const response = await getPriceMatrix(selectedProductId);
+//         const response = await fetchPriceMatrix(selectedProductId);
         
 //         console.log("Price Matrix Response:", response.data);
         
@@ -771,99 +812,103 @@
 //   };
 
 //   const handleEditItem = async (item) => {
-//   isEditingRef.current = true;
-//   setEditingItemId(item.id);
+//     isEditingRef.current = true;
+//     setEditingItemId(item.id);
 
-//   const product = allProducts.find((p) => String(p.id) === String(item.productId));
-//   if (product) {
-//     setSelectedCategoryId(String(product.category_id));
-//     const filtered = allProducts.filter(
-//       (p) => String(p.category_id) === String(product.category_id)
-//     );
-//     setFilteredProducts(filtered);
-//   }
-
-//   setSelectedProductId(String(item.productId));
-
-//   // Check if product has core types
-//   const productData = allProducts.find(p => String(p.id) === String(item.productId));
-//   const hasCoreTypesProduct = productData?.has_core_types === true;
-  
-//   if (hasCoreTypesProduct && item.coreTypeId && item.coreTypeId !== "none") {
-//     // Fetch price matrix for edit mode
-//     setPriceMatrixLoading(true);
-//     try {
-//       const response = await getPriceMatrix(item.productId);
-      
-//       console.log("Edit Mode - Price Matrix Response:", response.data);
-      
-//       // Extract core_types and prices from the response
-//       const coreTypes = response.data?.core_types || [];
-//       const prices = response.data?.prices || {};
-      
-//       // Create matrix array by combining core_types with their prices
-//       const matrix = coreTypes.map(coreType => {
-//         const priceData = prices[coreType.code];
-//         return {
-//           core_type_id: coreType.id,
-//           core_type_name: coreType.display_name || coreType.name,
-//           core_type_code: coreType.code,
-//           price: priceData?.price ? parseFloat(priceData.price) : null,
-//           coil_length: priceData?.coil_length ? parseFloat(priceData.coil_length) : null,
-//           exists: priceData?.exists || false
-//         };
-//       });
-      
-//       // Filter to only include entries with valid price > 0
-//       const validMatrix = matrix.filter(entry => 
-//         entry.price && entry.price > 0 && entry.exists === true
+//     const product = allProducts.find((p) => String(p.id) === String(item.productId));
+//     if (product) {
+//       setSelectedCategoryId(String(product.category_id));
+//       const filtered = allProducts.filter(
+//         (p) => String(p.category_id) === String(product.category_id)
 //       );
-      
-//       console.log("Edit Mode - Valid Matrix:", validMatrix);
-      
-//       setPriceMatrix(validMatrix);
-      
-//       // Set the core type ID after matrix is loaded
-//       setSelectedCoreTypeId(String(item.coreTypeId));
-      
-//       // Find and set the price for this core type
-//       const matrixEntry = validMatrix.find(
-//         (p) => String(p.core_type_id) === String(item.coreTypeId)
-//       );
-//       if (matrixEntry) {
-//         setSelectedPrice(parseFloat(matrixEntry.price) || 0);
-//         setSelectedCoilLength(parseFloat(matrixEntry.coil_length) || 0);
-//       } else {
+//       setFilteredProducts(filtered);
+//     }
+
+//     setSelectedProductId(String(item.productId));
+
+//     const productData = allProducts.find(p => String(p.id) === String(item.productId));
+//     const hasCoreTypesProduct = productData?.has_core_types === true;
+
+//     if (hasCoreTypesProduct) {
+//       setPriceMatrixLoading(true);
+//       try {
+//         // Use role-based endpoint (correct permissions per role)
+//         const response = await fetchPriceMatrix(item.productId);
+
+//         const coreTypes = response.data?.core_types || [];
+//         const prices = response.data?.prices || {};
+
+//         const matrix = coreTypes.map(coreType => {
+//           const priceData = prices[coreType.code];
+//           return {
+//             core_type_id: coreType.id,
+//             core_type_name: coreType.display_name || coreType.name,
+//             core_type_code: coreType.code,
+//             price: priceData?.price ? parseFloat(priceData.price) : null,
+//             coil_length: priceData?.coil_length ? parseFloat(priceData.coil_length) : null,
+//             exists: priceData?.exists || false
+//           };
+//         });
+
+//         const validMatrix = matrix.filter(entry =>
+//           entry.price && entry.price > 0 && entry.exists === true
+//         );
+
+//         console.log("Valid Matrix:", validMatrix);
+//         console.log("Target unit price to match:", item.unitPrice);
+
+//         // ── Match core type by unit_price ──
+//         // Since API doesn't return core_type_id on saved items,
+//         // we identify the correct core type by matching the saved unit_price
+//         const targetPrice = parseFloat(item.unitPrice);
+//         const matrixEntry = validMatrix.find(
+//           (p) => parseFloat(p.price) === targetPrice
+//         );
+
+//         console.log("Matched matrix entry by price:", matrixEntry);
+
+//         setPriceMatrix(validMatrix);
+
+//         if (matrixEntry) {
+//           setSelectedPrice(parseFloat(matrixEntry.price) || 0);
+//           setSelectedCoilLength(parseFloat(matrixEntry.coil_length) || 0);
+//           setTimeout(() => {
+//             setSelectedCoreTypeId(String(matrixEntry.core_type_id));
+//             isEditingRef.current = false;
+//           }, 50);
+//         } else {
+//           // No match found — set price but leave core type for manual selection
+//           console.warn("No matrix entry matched price:", targetPrice, "| Available prices:", validMatrix.map(e => e.price));
+//           setSelectedPrice(item.unitPrice || 0);
+//           setSelectedCoilLength(item.coilLength || 0);
+//           setSelectedCoreTypeId("");
+//           isEditingRef.current = false;
+//         }
+
+//       } catch (error) {
+//         console.error("Error fetching price matrix for edit:", error);
+//         setPriceMatrix([]);
+//         setSelectedCoreTypeId("");
 //         setSelectedPrice(item.unitPrice || 0);
 //         setSelectedCoilLength(item.coilLength || 0);
+//         isEditingRef.current = false;
+//       } finally {
+//         setPriceMatrixLoading(false);
 //       }
-//     } catch (error) {
-//       console.error("Error fetching price matrix for edit:", error);
+//     } else {
 //       setPriceMatrix([]);
-//       setSelectedCoreTypeId(String(item.coreTypeId));
+//       setSelectedCoreTypeId("none");
 //       setSelectedPrice(item.unitPrice || 0);
 //       setSelectedCoilLength(item.coilLength || 0);
-//     } finally {
-//       setPriceMatrixLoading(false);
+//       isEditingRef.current = false;
 //     }
-//   } else {
-//     // Product doesn't have core types
-//     setPriceMatrix([]);
-//     setSelectedCoreTypeId("none");
-//     setSelectedPrice(item.unitPrice || 0);
-//     setSelectedCoilLength(item.coilLength || 0);
-//   }
-  
-//   setSelectedColor(item.color || "");
-//   setQuantity(item.quantity || 1);
-//   setDiscountType(item.discountType || "percentage");
-//   setDiscountValue(item.discountValue || 0);
-//   setShowDiscountInPdf(item.showDiscountInPdf !== undefined ? item.showDiscountInPdf : true);
 
-//   setTimeout(() => {
-//     isEditingRef.current = false;
-//   }, 0);
-// };
+//     setSelectedColor(item.color || "");
+//     setQuantity(item.quantity || 1);
+//     setDiscountType(item.discountType || "percentage");
+//     setDiscountValue(item.discountValue || 0);
+//     setShowDiscountInPdf(item.showDiscountInPdf !== undefined ? item.showDiscountInPdf : true);
+//   };
 
 //   const handleCancelEdit = () => {
 //     setEditingItemId(null);
@@ -1911,10 +1956,6 @@
 // };
 
 // export default CreateQuotation;
-
-
-
-
 
 
 
@@ -3107,6 +3148,26 @@ const CreateQuotation = ({ userRole = "salesperson" }) => {
     setShowDuplicateDialog(false);
     setDuplicateData(null);
     setPendingPayload(null);
+
+    // Quotation was already saved — now redirect/reset like a normal success
+    if (isEditMode) {
+      window.history.back();
+    } else {
+      setQuotationItems([]);
+      setStep(1);
+      setClientInfo({
+        Name: "",
+        client_id: "",
+        quotation_date: new Date().toISOString().split("T")[0],
+        company_name: "",
+        email: "",
+        phone: "",
+        client_address: "",
+        region: "",
+        valid_until: "",
+      });
+      setShowDiscountInPdf(true);
+    }
   };
 
   const handleCancelDuplicate = () => {

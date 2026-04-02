@@ -1,3 +1,4 @@
+//import React from 'react';  // Add this 
 import { useEffect } from "react";
 
 import {
@@ -72,6 +73,8 @@ import RejectedQuot from "./pages/manager/subPages/Rejected";
 import MyQuotationsPage from "./pages/shared/MyQuotationsPage";
 import "./App.css";
 import NotificationBell from "./components/NotificationBell";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 
 
@@ -298,6 +301,8 @@ function App() {
       <Routes>
         {/* LOGIN PAGE */}
         <Route path="/" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         {/* ADMIN ROUTES */}
         <Route
           path="/admin-dashboard"
@@ -480,19 +485,7 @@ function App() {
         <Route path="/rejected-quotations" element={<ProtectedRoute requiredRole="salesperson"><RejectedQuotations /></ProtectedRoute>} />
         <Route path="/pending-quotations" element={<ProtectedRoute requiredRole="salesperson"><PendingQuotations /></ProtectedRoute>} />
         <Route path="/win-quotations" element={<ProtectedRoute requiredRole="salesperson"><WinQuotations /></ProtectedRoute>} />
-        // Add this route in your Manager Routes section:
-        <Route
-          path="/manager-profile"
-          element={
-            <ProtectedRoute requiredRole="manager">
-              <ManagerLayout>
-                <ManagerProfile />
-              </ManagerLayout>
-            </ProtectedRoute>
-          }
-        />
-        {/* REDIRECT TO LOGIN FOR UNKNOWN ROUTES */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* SUBMIT BUTTON CLICKED */}
         // Add these routes for Manager
         <Route
           path="/manager-dashboard"
@@ -554,6 +547,9 @@ function App() {
         <Route path="/manager/rejected" element={<ProtectedRoute requiredRole="manager"><RejectedQuot /></ProtectedRoute>} />
         <Route path="/manager/my-quotations" element={<ProtectedRoute requiredRole="manager"><ManagerLayout><MyQuotationsPage /></ManagerLayout></ProtectedRoute>} />
         <Route path="/super-admin/my-quotations" element={<ProtectedRoute requiredRole="super-admin"><SuperAdminLayout><MyQuotationsPage /></SuperAdminLayout></ProtectedRoute>} />
+        
+        {/* REDIRECT TO LOGIN FOR UNKNOWN ROUTES - MUST BE LAST */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

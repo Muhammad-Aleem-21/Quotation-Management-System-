@@ -185,8 +185,16 @@ export default function Login() {
             />
           </div>
 
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-gray-500 uppercase ml-1">Password</label>
+            <div className="flex justify-between items-center ml-1">
+              <label className="text-xs font-bold text-gray-500 uppercase">Password</label>
+              <button style={{display: "none"}}
+                type="button"
+                onClick={() => navigate("/forgot-password")}
+                className="text-[10px] font-bold text-blue-600 hover:text-blue-700 uppercase tracking-wider"
+              >
+                Forgot Password?
+              </button>
+            </div>
             <div className="relative">
               <input
                 type={showPassword ? "text" : "password"}
@@ -205,7 +213,6 @@ export default function Login() {
                 {showPassword ? <FiEyeOff size={20} /> : <FiEye size={20} />}
               </button>
             </div>
-          </div>
 
           <button
             type="submit"

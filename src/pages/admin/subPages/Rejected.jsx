@@ -556,13 +556,48 @@ const Rejected = () => {
                   </div>
                 </div>
 
-                {/* Rejection Reason */}
-                <div className="mt-4 sm:mt-6">
-                    <h4 className="text-[10px] sm:text-xs uppercase font-bold text-gray-500 tracking-wider mb-2">Rejection Reason</h4>
-                    <div className="bg-red-500/5 border border-red-500/20 p-4 rounded-xl text-sm text-gray-300">
-                        {selectedQuotation.rejection_reason || selectedQuotation.reason || 'No specific reason provided.'}
+                {/* Quotation History (Rejections & Resubmissions) */}
+                {(selectedQuotation.rejection_reason || (selectedQuotation.rejection_history && selectedQuotation.rejection_history.length > 0) || selectedQuotation.resubmit_reason || selectedQuotation.last_edit_reason) && (
+                  <div className="mt-8 border-t border-gray-700/50 pt-6">
+                    <h4 className="text-xs uppercase font-bold text-gray-500 tracking-wider mb-4 flex items-center gap-2">
+                       <FiClock size={14} className="text-gray-500" />
+                       Quotation History
+                    </h4>
+                    <div className="space-y-4">
+                      {/* Resubmission Reason from Salesperson */}
+                      {(selectedQuotation.resubmit_reason || selectedQuotation.last_edit_reason) && (
+                        <div className="bg-blue-600/5 p-4 rounded-xl border border-blue-600/20">
+                          <p className="text-[10px] text-blue-400 font-bold uppercase mb-1">Salesperson's Resubmission Comment</p>
+                          <p className="text-sm text-gray-200 italic">"{selectedQuotation.resubmit_reason || selectedQuotation.last_edit_reason}"</p>
+                        </div>
+                      )}
+
+                      {/* Latest Rejection Reason */}
+                      {selectedQuotation.rejection_reason && (
+                        <div className="bg-red-600/5 p-4 rounded-xl border border-red-600/20">
+                          <p className="text-[10px] text-red-400 font-bold uppercase mb-1">Latest Rejection Reason</p>
+                          <p className="text-sm text-red-200 italic">"{selectedQuotation.rejection_reason}"</p>
+                        </div>
+                      )}
+
+                      {/* Previous Rejection History */}
+                      {selectedQuotation.rejection_history && Array.isArray(selectedQuotation.rejection_history) && selectedQuotation.rejection_history.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-[10px] text-gray-500 font-bold uppercase px-1">Previous Rejections</p>
+                          {selectedQuotation.rejection_history.map((hist, idx) => (
+                            <div key={idx} className="bg-gray-800/50 p-3 rounded-lg border border-gray-700/50 text-xs">
+                              <div className="flex justify-between text-gray-400 mb-1">
+                                <span className="font-semibold">{hist.rejected_by_name || 'System Review'}</span>
+                                <span>{hist.rejected_at ? new Date(hist.rejected_at).toLocaleDateString() : ''}</span>
+                              </div>
+                              <p className="text-gray-300 italic">"{hist.rejection_reason}"</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                </div>
+                  </div>
+                )}
 
                 {/* Items List */}
                 {selectedQuotation.items && Array.isArray(selectedQuotation.items) && selectedQuotation.items.length > 0 && (

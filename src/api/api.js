@@ -11,8 +11,11 @@ const API = axios.create({
 // Add a request interceptor to include the bearer token
 API.interceptors.request.use(
   (config) => {
+    // Skip token for password reset endpoints to avoid CORS/Auth issues on public routes
+    const isPublicRoute = config.url.includes('/password/');
+    
     const token = localStorage.getItem("token");
-    if (token) {
+    if (token && !isPublicRoute) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
@@ -98,6 +101,16 @@ export const clearAllNotifications = () => API.delete('/notifications/clear-all'
 // Duplicate Quotation Alerts
 export const getDuplicateAlerts = (page = 1) => API.get('/notifications/duplicate-alerts', { params: { page } });
 export const forceSubmitQuotation = (data) => API.post('/quotations', { ...data, force_submit: true });
+
+// Password Reset APIs (Using clean axios with explicit Accept header to match Postman)
+export const forgotPassword = (email) => 
+    axios.post('/api/password/forgot', { email }, { headers: { 'Accept': 'application/json' } });
+
+export const verifyResetToken = (data) => 
+    axios.post('/api/password/verify-token', data, { headers: { 'Accept': 'application/json' } });
+
+export const resetPassword = (data) => 
+    axios.post('/api/password/reset', data, { headers: { 'Accept': 'application/json' } });
 
 export default API;
 
