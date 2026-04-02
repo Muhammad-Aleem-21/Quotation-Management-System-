@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://backend-qms.fortuneitpark.com/api/:path*"
+      "destination": "http://backend-qms.fortuneitpark.com/api/:path*"
     },
     {
       "source": "/(.*)",
