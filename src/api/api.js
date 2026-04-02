@@ -1,5 +1,7 @@
 import axios from "axios";
 
+console.log("🛠️ API Base URL:", import.meta.env.VITE_API_URL || "/api");
+
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "/api",
   headers: {
@@ -112,15 +114,15 @@ export const clearAllNotifications = () => API.delete('/notifications/clear-all'
 export const getDuplicateAlerts = (page = 1) => API.get('/notifications/duplicate-alerts', { params: { page } });
 export const forceSubmitQuotation = (data) => API.post('/quotations', { ...data, force_submit: true });
 
-// Password Reset APIs (Using clean axios with explicit Accept header to match Postman)
+// Password Reset APIs (Updated to use the API instance for consistency)
 export const forgotPassword = (email) => 
-    axios.post('/api/password/forgot', { email }, { headers: { 'Accept': 'application/json' } });
+    API.post('/password/forgot', { email }, { headers: { 'Accept': 'application/json' } });
 
 export const verifyResetToken = (data) => 
-    axios.post('/api/password/verify-token', data, { headers: { 'Accept': 'application/json' } });
+    API.post('/password/verify-token', data, { headers: { 'Accept': 'application/json' } });
 
 export const resetPassword = (data) => 
-    axios.post('/api/password/reset', data, { headers: { 'Accept': 'application/json' } });
+    API.post('/password/reset', data, { headers: { 'Accept': 'application/json' } });
 
 export default API;
 
