@@ -1,12 +1,22 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "/api",
+  baseURL: import.meta.env.VITE_API_URL || "/api",
   headers: {
     "Content-Type": "application/json",
     "Accept": "application/json",
   },
 });
+
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 500) {
+      console.error("Critical Server Error (500):", error.response.data);
+    }
+    return Promise.reject(error);
+  }
+);
 
 // Add a request interceptor to include the bearer token
 API.interceptors.request.use(
