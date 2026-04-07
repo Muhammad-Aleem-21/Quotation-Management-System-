@@ -28,16 +28,11 @@ const SalespersonDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quotationStats, setQuotationStats] = useState({
+    total: 0,
     approved: 0,
     rejected: 0,
     pending: 0,
     win: 0,
-  });
-
-  const [performanceStats, setPerformanceStats] = useState({
-    leads: 0,
-    conversions: 0,
-    revenue: 0,
   });
 
   const [quotationTrend, setQuotationTrend] = useState([
@@ -50,25 +45,8 @@ const SalespersonDashboard = () => {
 
   useEffect(() => {
     fetchQuotationStats();
-    fetchPerformanceStats();
   }, []);
 
-  const fetchPerformanceStats = async () => {
-    try {
-      // const response = await API.get("/dashboard/stats");
-      const response = { data: { success: true, dashboard_stats: {} } };
-      if (response.data.success && response.data.dashboard_stats) {
-        const perf = response.data.dashboard_stats.performance;
-        setPerformanceStats({
-          leads: perf.leads || 0,
-          conversions: perf.conversions || 0,
-          revenue: perf.revenue || 0,
-        });
-      }
-    } catch (error) {
-      console.warn("Error fetching performance stats:", error.message);
-    }
-  };
 
   const fetchQuotationStats = async () => {
     try {
@@ -104,12 +82,10 @@ const SalespersonDashboard = () => {
           }
         });
 
-        setQuotationStats(stats);
-        setPerformanceStats(prev => ({
-          ...prev,
-          revenue: totalRevenue,
-          conversions: stats.win + stats.approved
-        }));
+        setQuotationStats({
+          ...stats,
+          total: myQuotes.length
+        });
 
         // Mock trend data based on actually fetched quotes (grouped by month)
         const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -164,63 +140,63 @@ const SalespersonDashboard = () => {
         )}
       </div>
 
-      {/* Performance Stats Cards */}
+      {/* Quick Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-        {/* Total Leads */}
+        {/* Total Quotations */}
         <div className="bg-gradient-to-br from-blue-600/20 to-blue-900/20 p-4 sm:p-6 rounded-2xl border border-blue-500/30 shadow-lg relative overflow-hidden group">
           <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
-            <span className="text-8xl">🎯</span>
+            <span className="text-8xl">📜</span>
           </div>
           <div className="relative z-10">
-            <p className="text-blue-300 text-sm font-medium uppercase tracking-wider">Total Leads</p>
+            <p className="text-blue-300 text-sm font-medium uppercase tracking-wider">Total Quotations</p>
             <div className="flex items-end gap-2 mt-2">
-              <h2 className="text-3xl sm:text-4xl font-black text-white">{performanceStats.leads}</h2>
-              <span className="text-blue-400 text-xs mb-1 mb-2 font-semibold">Active Leads</span>
+              <h2 className="text-3xl sm:text-4xl font-black text-white">{quotationStats.total}</h2>
+              <span className="text-blue-400 text-xs mb-1 mb-2 font-semibold">My Submissions</span>
             </div>
             <div className="mt-4 flex items-center gap-2">
               <span className="flex h-2 w-2 rounded-full bg-blue-400 animate-pulse"></span>
-              <p className="text-gray-400 text-xs">Updated via dashboard API</p>
+              <p className="text-gray-400 text-xs">Overall activity count</p>
             </div>
           </div>
         </div>
 
-        {/* Conversions */}
+        {/* Pending Quotations */}
         <div className="bg-gradient-to-br from-purple-600/20 to-purple-900/20 p-4 sm:p-6 rounded-2xl border border-purple-500/30 shadow-lg relative overflow-hidden group">
           <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
-            <span className="text-8xl">🚀</span>
+            <span className="text-8xl">⏳</span>
           </div>
           <div className="relative z-10">
-            <p className="text-purple-300 text-sm font-medium uppercase tracking-wider">Conversions</p>
+            <p className="text-purple-300 text-sm font-medium uppercase tracking-wider">Pending Quotations</p>
             <div className="flex items-end gap-2 mt-2">
-              <h2 className="text-3xl sm:text-4xl font-black text-white">{performanceStats.conversions}</h2>
+              <h2 className="text-3xl sm:text-4xl font-black text-white">{quotationStats.pending}</h2>
               <span className="text-purple-400 text-xs mb-1 mb-2 font-semibold">
-                {performanceStats.leads > 0 
-                  ? `${((performanceStats.conversions / performanceStats.leads) * 100).toFixed(1)}% Rate`
-                  : '0% Rate'
+                {quotationStats.total > 0 
+                  ? `${((quotationStats.pending / quotationStats.total) * 100).toFixed(1)}% of total`
+                  : '0% of total'
                 }
               </span>
             </div>
             <div className="mt-4 flex items-center gap-2">
               <span className="flex h-2 w-2 rounded-full bg-purple-400 animate-pulse"></span>
-              <p className="text-gray-400 text-xs">Total successful deals</p>
+              <p className="text-gray-400 text-xs">Waiting for admin review</p>
             </div>
           </div>
         </div>
 
-        {/* Monthly Revenue */}
+        {/* Approved Quotations */}
         <div className="bg-gradient-to-br from-emerald-600/20 to-emerald-900/20 p-4 sm:p-6 rounded-2xl border border-emerald-500/30 shadow-lg relative overflow-hidden group">
           <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
-            <span className="text-8xl">💰</span>
+            <span className="text-8xl">✅</span>
           </div>
           <div className="relative z-10">
-            <p className="text-emerald-300 text-sm font-medium uppercase tracking-wider">Monthly Revenue</p>
+            <p className="text-emerald-300 text-sm font-medium uppercase tracking-wider">Approved Quotations</p>
             <div className="flex items-end gap-2 mt-2">
-              <h2 className="text-3xl sm:text-4xl font-black text-white">Rs. {performanceStats.revenue.toLocaleString()}</h2>
-              <span className="text-emerald-400 text-xs mb-1 mb-2 font-semibold">Target: Rs. 20k</span>
+              <h2 className="text-3xl sm:text-4xl font-black text-white">{quotationStats.approved}</h2>
+              <span className="text-emerald-400 text-xs mb-1 mb-2 font-semibold">Done & Accepted</span>
             </div>
             <div className="mt-4 flex items-center gap-2">
               <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <p className="text-gray-400 text-xs">Current month earnings</p>
+              <p className="text-gray-400 text-xs">Ready for execution</p>
             </div>
           </div>
         </div>

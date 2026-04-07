@@ -36,6 +36,43 @@ const getNotificationMeta = (notification) => {
   return { icon: <FiAlertCircle />, color: "text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/30" };
 };
 
+// Format notification time as relative or absolute (converts UTC from backend → local device time)
+const formatNotificationTime = (notification) => {
+  const timestamp = notification.created_at || notification.updated_at || notification.data?.created_at;
+  if (!timestamp) return '';
+
+  // Ensure UTC interpretation if no timezone indicator is present
+  let normalized = String(timestamp).trim();
+  if (!/Z|[+-]\d{2}:\d{2}$/.test(normalized)) {
+    normalized = normalized.replace(' ', 'T') + 'Z';
+  }
+
+  const date = new Date(normalized);
+  if (isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  const diffMs = now - date;
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSeconds < 60) return 'Just now';
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return date.toLocaleString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Karachi',   // ← add this
+  });
+};
+
 // Determine target route based on role
 const getTargetRoute = (notification) => {
   const role = localStorage.getItem("role") || "";
@@ -305,6 +342,12 @@ export default function NotificationBell({ inline = false }) {
                       <p className={`text-sm leading-snug ${isUnread ? "text-white font-medium" : "text-gray-300"}`}>
                         {notification.title || notification.message || notification.data?.message || "New notification"}
                       </p>
+                      {formatNotificationTime(notification) && (
+                        <p className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-1">
+                          <FiClock className="text-[9px]" />
+                          {formatNotificationTime(notification)}
+                        </p>
+                      )}
                     </div>
 
                     {/* Unread dot + Delete */}

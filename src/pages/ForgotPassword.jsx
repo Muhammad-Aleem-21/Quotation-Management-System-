@@ -30,14 +30,12 @@ const ForgotPassword = () => {
                 });
             }
         } catch (error) {
-            console.error('Forgot password error details:', {
-                status: error.response?.status,
-                data: error.response?.data,
-                message: error.message
-            });
+            console.error('Full error response:', error.response?.data); // 👈 this prints the real Laravel error
             setStatus({
                 type: 'error',
-                message: error.response?.data?.message || 'Server error (500). This usually means the backend is having trouble sending emails. Please try again in a few minutes.'
+                message: error.response?.data?.message 
+                    || error.response?.data?.error  
+                    || 'Server error. Please try again.'
             });
         } finally {
             setLoading(false);

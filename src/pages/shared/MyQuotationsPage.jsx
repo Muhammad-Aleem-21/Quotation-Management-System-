@@ -3,6 +3,26 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FiX, FiSearch, FiSend } from 'react-icons/fi';
 import { getQuotations } from '../../api/api';
 
+// Format date + time for display (converts UTC from backend → local device time)
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return 'N/A';
+  let normalized = String(dateStr).trim();
+  if (!/Z|[+-]\d{2}:\d{2}$/.test(normalized)) {
+    normalized = normalized.replace(' ', 'T') + 'Z';
+  }
+  const date = new Date(normalized);
+  if (isNaN(date.getTime())) return dateStr;
+  return date.toLocaleString(undefined, {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'Asia/Karachi',   // ← add this
+  });
+};
+
 const MyQuotationsPage = () => {
   const navigate = useNavigate();
   const tableRef = useRef(null);
@@ -347,7 +367,7 @@ const MyQuotationsPage = () => {
                     </div>
                   </td>
                   <td className="px-3 py-2 sm:px-4 sm:py-3 text-gray-300 text-sm sm:text-base">
-                    {quote.quotation_date || quote.created_at?.split('T')[0] || 'N/A'}
+                    {formatDateTime(quote.quotation_date || quote.created_at)}
                   </td>
                   <td className="px-3 py-2 sm:px-4 sm:py-3 font-bold text-white text-sm sm:text-base">
                     Rs. {parseFloat(quote.final_amount || quote.total_amount || quote.amount || 0).toLocaleString()}
@@ -440,7 +460,7 @@ const MyQuotationsPage = () => {
                   <span className="text-blue-400 text-xs sm:text-sm font-mono bg-blue-400/10 px-2 py-0.5 rounded-md">#{selectedQuotation.id}</span>
                 </h3>
                 <p className="text-[10px] sm:text-xs text-gray-400 mt-1">
-                  Submitted on {selectedQuotation.quotation_date || selectedQuotation.created_at?.split('T')[0]}
+                  Submitted on {formatDateTime(selectedQuotation.quotation_date || selectedQuotation.created_at)}
                 </p>
               </div>
               <button
